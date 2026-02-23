@@ -1,0 +1,44 @@
+#:schema ./.aviutl2-cli/aviutl2.schema.json
+# 設定ファイルについては https://github.com/sevenc-nanashi/aviutl2-cli を参照してください。
+
+[project]
+id = "sevenc-nanashi.quantizer-aux2"
+name = "quantizer.aux2"
+version = "0.1.0"
+
+[development]
+aviutl2_version = "latest"
+
+[artifacts.English-quantizer_aux2-aul2]
+destination = "Language/English.quantizer_aux2.aul2"
+source = "./i18n/English.quantizer_aux2.aul2"
+
+[artifacts.English-aul2]
+enabled = false
+destination = "Language/English.aul2"
+source = "https://raw.githubusercontent.com/aviutl2/aviutl2_community_translation/refs/heads/main/locales/original_english.aul2"
+
+[artifacts.English-aul2.profiles.debug]
+enabled = true
+
+[artifacts.quantizer_aux2]
+destination = "Plugin/quantizer.aux2"
+
+[artifacts.quantizer_aux2.profiles.debug]
+build = "cargo build"
+source = "target/debug/quantizer_aux2.dll"
+
+[artifacts.quantizer_aux2.profiles.release]
+build = "cargo build --release"
+source = "target/release/quantizer_aux2.dll"
+
+[catalog]
+id = "sevenc-nanashi.quantizer-aux2"
+name = "quantizer.aux2"
+summary = "BPMグリッドから少しズレているオブジェクトを補正するプラグイン"
+type = "common"
+description = { type = "url", url = "https://raw.githubusercontent.com/sevenc-nanashi/quantizer.aux2/main/README.md" }
+author = "Nanashi."
+download_source = { type = "github", owner = "sevenc-nanashi", repo = "quantizer.aux2" }
+homepage = "https://github.com/sevenc-nanashi/quantizer.aux2"
+license = { type = "MIT", template = false, text = { type = "file", path = "./LICENSE" } }
