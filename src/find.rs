@@ -238,7 +238,7 @@ pub fn fix_offbeat(
                 let new_object = edit.create_object_from_alias(
                     &new_alias.to_string(),
                     position.layer,
-                    position.start - offbeat_info.offset_frames as usize,
+                    ((position.start as i64) - offbeat_info.offset_frames) as usize,
                     0,
                 )?;
 
@@ -293,7 +293,7 @@ pub fn fix_offbeat(
                 let new_right_object = edit.create_object_from_alias(
                     &new_right_alias.to_string(),
                     position.layer,
-                    position.start - offbeat_info.offset_frames as usize,
+                    ((position.start as i64) - offbeat_info.offset_frames) as usize,
                     0,
                 )?;
 
@@ -311,14 +311,12 @@ fn fix_starting_gap(
     alias: &aviutl2::alias::Table,
     offset_frames: i64,
 ) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<usize> = alias
+    let mut frames: Vec<i64> = alias
         .get_table("Object")
         .context("Object table not found")?
         .parse_value("frame")
         .context("frame column not found")??;
-    frames[1..].iter_mut().for_each(|f| {
-        *f += offset_frames as usize;
-    });
+    frames[0] -= offset_frames;
     let mut new_alias = alias.clone();
     new_alias
         .get_table_mut("Object")
@@ -337,12 +335,12 @@ fn fix_ending_gap(
     alias: &aviutl2::alias::Table,
     offset_frames: i64,
 ) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<usize> = alias
+    let mut frames: Vec<i64> = alias
         .get_table("Object")
         .context("Object table not found")?
         .parse_value("frame")
         .context("frame column not found")??;
-    *frames.last_mut().unwrap() = (*frames.last().unwrap() as i64 - offset_frames) as usize;
+    *frames.last_mut().unwrap() -= offset_frames;
     let mut new_alias = alias.clone();
     new_alias
         .get_table_mut("Object")
@@ -362,12 +360,12 @@ fn fix_keyframe_gap(
     keyframe_index: usize,
     offset_frames: i64,
 ) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<usize> = alias
+    let mut frames: Vec<i64> = alias
         .get_table("Object")
         .context("Object table not found")?
         .parse_value("frame")
         .context("frame column not found")??;
-    frames[keyframe_index + 1] = (frames[keyframe_index + 1] as i64 - offset_frames) as usize;
+    frames[keyframe_index + 1] -= offset_frames;
     let mut new_alias = alias.clone();
     new_alias
         .get_table_mut("Object")

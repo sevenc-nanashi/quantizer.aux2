@@ -22,6 +22,7 @@
 ジャンプ=Jump
 除外=Ignore
 補正=Fix
+スキップ=Skip
 バージョン: {version}=Version: {version}
 キーフレームのズレを移動・補正する補助プラグインです。=A helper plugin to move and fix keyframe offbeats.
 開発者=Developer
@@ -30,6 +31,7 @@
 ソート：=Sort:
 レイヤー順=By Layer
 フレーム順=By Frame
+自動で次にジャンプ=Jump to Next Automatically
 
 [quantizer.aux2対象外]
 quantizer.aux2対象外=Exclude from quantizer.aux2

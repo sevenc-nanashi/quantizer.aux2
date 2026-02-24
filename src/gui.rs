@@ -19,6 +19,7 @@ pub(crate) struct QuantizerGuiApp {
     target_middle: bool,
     target_end: bool,
     sort_by: SortBy,
+    auto_jump: bool,
 
     gaps: Option<Vec<crate::find::OffbeatInfo>>,
 }
@@ -67,6 +68,7 @@ impl QuantizerGuiApp {
             target_middle: true,
             target_end: true,
             sort_by: SortBy::Frame,
+            auto_jump: true,
             gaps: None,
         }
     }
@@ -242,16 +244,25 @@ impl QuantizerGuiApp {
                         .sort_by_key(|gap| (gap.frame, gap.position.layer));
                 }
             });
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.auto_jump, tr("自動で次にジャンプ"));
+            });
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut remove_indices = std::collections::HashSet::new();
                 let mut remap = std::collections::HashMap::new();
-                for (i, gap) in self.gaps.as_ref().unwrap().iter().enumerate() {
+                let mut interacted_indices = Vec::new();
+                let gaps = self.gaps.as_ref().unwrap();
+
+                for (i, gap) in gaps.iter().enumerate() {
                     if self.draw_gap_card(ui, gap, &mut remap) {
                         remove_indices.insert(i);
+                        interacted_indices.push(i);
                     }
                 }
-                for (i, gap) in self.gaps.as_mut().unwrap().iter_mut().enumerate() {
+
+                let gaps = self.gaps.as_mut().unwrap();
+                for (i, gap) in gaps.iter_mut().enumerate() {
                     if let Some(new_handle) = remap.get(&gap.object) {
                         if let Some(new_handle) = new_handle {
                             gap.object = *new_handle;
@@ -275,7 +286,17 @@ impl QuantizerGuiApp {
                 remove_indices.sort_unstable();
 
                 for i in remove_indices.into_iter().rev() {
-                    self.gaps.as_mut().unwrap().remove(i);
+                    gaps.remove(i);
+                }
+
+                if self.auto_jump && !interacted_indices.is_empty() {
+                    let next_index = interacted_indices.iter().min().unwrap();
+                    if let Some(next_gap) = self.gaps.as_ref().unwrap().get(*next_index) {
+                        let res = self.jump_to_gap(next_gap);
+                        if let Err(e) = res {
+                            log::error!("Failed to jump to next gap: {e}");
+                        }
+                    }
                 }
             });
         });
@@ -406,6 +427,18 @@ impl QuantizerGuiApp {
                                     log::error!("Failed to add marker: {e}");
                                 }
                             }
+                        }
+                        if self.auto_jump
+                            && ui
+                                .add_sized(
+                                    egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                                    egui::Button::new(tr("スキップ")),
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                .clicked()
+                        {
+                            log::info!("Skipping gap and jumping to next");
+                            remove = true;
                         }
                     });
                 });
