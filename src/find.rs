@@ -8,6 +8,7 @@ pub struct FindTarget {
     pub start: bool,
     pub keyframe: bool,
     pub end: bool,
+    pub project_end: bool,
 }
 
 pub fn max_frames_per_beat() -> f64 {
@@ -139,6 +140,10 @@ pub fn find_offsync_objects(
                 TimingType::EndThenStart { .. } => find_target.start || find_target.end,
             };
             if !is_target {
+                continue;
+            }
+
+            if !find_target.project_end && timing.frame == edit.info.frame_max {
                 continue;
             }
 
@@ -380,6 +385,17 @@ fn fix_keyframe_gap(
         );
 
     Ok(new_alias)
+}
+
+/// 延長できない可能性があるオブジェクトかどうか（特に音声ファイルと動画ファイル）
+fn is_timed_object(alias: &aviutl2::alias::Table) -> anyhow::Result<bool> {
+    let object_0_table = alias
+        .get_table("Object.0")
+        .context("Object table not found")?;
+    let effect_name = object_0_table
+        .get_value("effect.name")
+        .context("effect.name not found")?;
+    Ok(effect_name == "音声ファイル" || effect_name == "動画ファイル")
 }
 
 pub fn mark_ignored(

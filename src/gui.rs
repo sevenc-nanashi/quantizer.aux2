@@ -18,6 +18,7 @@ pub(crate) struct QuantizerGuiApp {
     target_start: bool,
     target_middle: bool,
     target_end: bool,
+    target_project_end: bool,
     sort_by: SortBy,
     auto_jump: bool,
 
@@ -72,6 +73,7 @@ impl QuantizerGuiApp {
             target_start: true,
             target_middle: true,
             target_end: true,
+            target_project_end: false,
             sort_by: SortBy::Frame,
             auto_jump: true,
             gaps: None,
@@ -160,6 +162,7 @@ impl QuantizerGuiApp {
                     start: self.target_start,
                     keyframe: self.target_middle,
                     end: self.target_end,
+                    project_end: self.target_project_end,
                 };
                 match crate::find::find_offsync_objects(&find_target, self.frame_count) {
                     Ok(mut gaps) => {
@@ -193,6 +196,7 @@ impl QuantizerGuiApp {
                 ui.checkbox(&mut self.target_start, tr("開始位置"));
                 ui.checkbox(&mut self.target_middle, tr("中継点"));
                 ui.checkbox(&mut self.target_end, tr("終了位置"));
+                ui.checkbox(&mut self.target_project_end, tr("プロジェクト終端"));
             });
         });
     }

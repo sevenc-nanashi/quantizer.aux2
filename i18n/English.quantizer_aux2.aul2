@@ -7,6 +7,7 @@
 開始位置=Start
 中継点=Keyframe
 終了位置=End
+プロジェクト終端=End of Project
 検出に戻る=Back to Detection
 見つかったズレ: {count} 件=Found Offbeats: {count}
 手動でオブジェクトを修正した場合は「検出に戻る」を押してください。=If you manually fix objects, press "Back to Detection".
