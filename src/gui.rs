@@ -33,6 +33,11 @@ fn tr_format(template: &str, args: &[(&str, &str)]) -> String {
     translated
 }
 
+fn label_truncated(ui: &mut egui::Ui, text: String) {
+    ui.add(egui::Label::new(&text).truncate())
+        .on_hover_text(text);
+}
+
 impl QuantizerGuiApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>, handle: AviUtl2EframeHandle) -> Self {
         let header_collapsed = cc
@@ -326,10 +331,10 @@ impl QuantizerGuiApp {
                         match &gap.timing_type {
                             crate::find::TimingType::Start { object_name } => {
                                 ui.label(tr("種別：開始位置"));
-                                ui.label(tr_format(
-                                    "オブジェクト：{name}",
-                                    &[("name", object_name)],
-                                ));
+                                label_truncated(
+                                    ui,
+                                    tr_format("オブジェクト：{name}", &[("name", object_name)]),
+                                );
                             }
                             crate::find::TimingType::Keyframe {
                                 object_name,
@@ -340,17 +345,17 @@ impl QuantizerGuiApp {
                                     "種別：中継点（{index}）",
                                     &[("index", &keyframe_index)],
                                 ));
-                                ui.label(tr_format(
-                                    "オブジェクト：{name}",
-                                    &[("name", object_name)],
-                                ));
+                                label_truncated(
+                                    ui,
+                                    tr_format("オブジェクト：{name}", &[("name", object_name)]),
+                                );
                             }
                             crate::find::TimingType::End { object_name } => {
                                 ui.label(tr("種別：終了位置"));
-                                ui.label(tr_format(
-                                    "オブジェクト：{name}",
-                                    &[("name", object_name)],
-                                ));
+                                label_truncated(
+                                    ui,
+                                    tr_format("オブジェクト：{name}", &[("name", object_name)]),
+                                );
                             }
                             crate::find::TimingType::EndThenStart {
                                 object_name_left,
@@ -358,16 +363,19 @@ impl QuantizerGuiApp {
                                 ..
                             } => {
                                 ui.label(tr("種別：境界"));
-                                ui.label(tr_format(
-                                    "オブジェクト：{left} → {right}",
-                                    &[("left", object_name_left), ("right", object_name_right)],
-                                ));
+                                label_truncated(
+                                    ui,
+                                    tr_format(
+                                        "オブジェクト：{left} → {right}",
+                                        &[("left", object_name_left), ("right", object_name_right)],
+                                    ),
+                                );
                             }
                         }
-                        ui.label(tr_format(
-                            "レイヤー：{layer}",
-                            &[("layer", &gap.layer_name)],
-                        ));
+                        label_truncated(
+                            ui,
+                            tr_format("レイヤー：{layer}", &[("layer", &gap.layer_name)]),
+                        );
                         let frame = gap.frame.to_string();
                         ui.label(tr_format("フレーム：{frame}f", &[("frame", &frame)]));
                         let offset = if gap.offset_frames > 0 {
