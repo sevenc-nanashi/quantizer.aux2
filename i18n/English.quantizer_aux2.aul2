@@ -27,6 +27,9 @@
 開発者=Developer
 ソースコード:=Source Code:
 読み込み中...=Loading...
+ソート：=Sort:
+レイヤー順=By Layer
+フレーム順=By Frame
 
 [quantizer.aux2対象外]
 quantizer.aux2対象外=Exclude from quantizer.aux2

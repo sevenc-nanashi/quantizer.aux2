@@ -2,6 +2,12 @@ use aviutl2::{anyhow, config::translate as tr, log};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::atomic::Ordering;
 
+#[derive(PartialEq, Eq)]
+enum SortBy {
+    Layer,
+    Frame,
+}
+
 pub(crate) struct QuantizerGuiApp {
     handle: AviUtl2EframeHandle,
     show_info: bool,
@@ -12,6 +18,7 @@ pub(crate) struct QuantizerGuiApp {
     target_start: bool,
     target_middle: bool,
     target_end: bool,
+    sort_by: SortBy,
 
     gaps: Option<Vec<crate::find::OffbeatInfo>>,
 }
@@ -59,6 +66,7 @@ impl QuantizerGuiApp {
             target_start: true,
             target_middle: true,
             target_end: true,
+            sort_by: SortBy::Frame,
             gaps: None,
         }
     }
@@ -147,8 +155,13 @@ impl QuantizerGuiApp {
                     end: self.target_end,
                 };
                 match crate::find::find_offsync_objects(&find_target, self.frame_count) {
-                    Ok(gaps) => {
+                    Ok(mut gaps) => {
                         log::info!("Found {} off-sync objects", gaps.len());
+                        gaps.sort_by_key(if self.sort_by == SortBy::Layer {
+                            |gap: &crate::find::OffbeatInfo| (gap.position.layer, gap.frame)
+                        } else {
+                            |gap: &crate::find::OffbeatInfo| (gap.frame, gap.position.layer)
+                        });
                         self.gaps = Some(gaps);
                     }
                     Err(e) => {
@@ -205,6 +218,31 @@ impl QuantizerGuiApp {
                     "手動でオブジェクトを修正した場合は「検出に戻る」を押してください。",
                 ))
             });
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                ui.label(tr("ソート："));
+                if ui
+                    .selectable_label(self.sort_by == SortBy::Layer, tr("レイヤー順"))
+                    .clicked()
+                {
+                    self.sort_by = SortBy::Layer;
+                    self.gaps
+                        .as_mut()
+                        .unwrap()
+                        .sort_by_key(|gap| (gap.position.layer, gap.frame));
+                }
+                if ui
+                    .selectable_label(self.sort_by == SortBy::Frame, tr("フレーム順"))
+                    .clicked()
+                {
+                    self.sort_by = SortBy::Frame;
+                    self.gaps
+                        .as_mut()
+                        .unwrap()
+                        .sort_by_key(|gap| (gap.frame, gap.position.layer));
+                }
+            });
+
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut remove_indices = std::collections::HashSet::new();
                 let mut remap = std::collections::HashMap::new();
