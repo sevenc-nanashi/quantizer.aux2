@@ -52,6 +52,17 @@ impl QuantizerGuiApp {
                 "./fonts/mplus-1p-regular.ttf"
             ))),
         );
+        fonts.font_data.insert(
+            "SimHei".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                "./fonts/simhei.ttc"
+            ))),
+        );
+        fonts
+            .families
+            .get_mut(&egui::FontFamily::Proportional)
+            .expect("Failed to get Proportional font family")
+            .insert(0, "SimHei".to_owned());
         fonts
             .families
             .get_mut(&egui::FontFamily::Proportional)
