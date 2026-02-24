@@ -55,7 +55,7 @@ impl QuantizerGuiApp {
         fonts.font_data.insert(
             "SimHei".to_owned(),
             std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                "./fonts/simhei.ttc"
+                "./fonts/simhei.ttf"
             ))),
         );
         fonts
