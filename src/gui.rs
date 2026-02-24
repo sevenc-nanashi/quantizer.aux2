@@ -62,13 +62,13 @@ impl QuantizerGuiApp {
             .families
             .get_mut(&egui::FontFamily::Proportional)
             .expect("Failed to get Proportional font family")
-            .insert(0, "SimHei".to_owned());
+            .insert(0, "M+ 1p".to_owned());
         fonts
             .families
             .get_mut(&egui::FontFamily::Proportional)
             .expect("Failed to get Proportional font family")
-            .insert(0, "M+ 1p".to_owned());
-
+            .insert(0, "SimHei".to_owned());
+            
         cc.egui_ctx.all_styles_mut(|style| {
             style.visuals = aviutl2_eframe::aviutl2_visuals();
         });
