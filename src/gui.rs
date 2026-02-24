@@ -1,5 +1,6 @@
 use aviutl2::{anyhow, log};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
+use std::sync::atomic::Ordering;
 
 pub(crate) struct QuantizerGuiApp {
     handle: AviUtl2EframeHandle,
@@ -388,6 +389,9 @@ impl QuantizerGuiApp {
 
 impl eframe::App for QuantizerGuiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if crate::RESET_GAPS_ON_PROJECT_LOAD.swap(false, Ordering::Relaxed) {
+            self.gaps = None;
+        }
         if !crate::EDIT_HANDLE.is_ready() {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.centered_and_justified(|ui| {
