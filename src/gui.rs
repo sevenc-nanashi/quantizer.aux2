@@ -151,7 +151,7 @@ impl QuantizerGuiApp {
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ui.label("フレーム数:");
+                ui.label("フレーム数：");
                 let max_frames = crate::find::max_frames_per_beat();
                 ui.add_sized(
                     egui::vec2(80.0, ui.spacing().interact_size.y),
@@ -162,7 +162,7 @@ impl QuantizerGuiApp {
 
             ui.add_space(8.0);
             ui.vertical(|ui| {
-                ui.label("対象:");
+                ui.label("対象：");
                 ui.checkbox(&mut self.target_start, "開始位置");
                 ui.checkbox(&mut self.target_middle, "中継点");
                 ui.checkbox(&mut self.target_end, "終了位置");
@@ -196,28 +196,39 @@ impl QuantizerGuiApp {
                 ui.label("手動でオブジェクトを修正した場合は「検出に戻る」を押してください。")
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
-                let mut remove_indices = Vec::new();
+                let mut remove_indices = std::collections::HashSet::new();
                 let mut remap = std::collections::HashMap::new();
                 for (i, gap) in self.gaps.as_ref().unwrap().iter().enumerate() {
                     if self.draw_gap_card(ui, gap, &mut remap) {
-                        remove_indices.push(i);
+                        remove_indices.insert(i);
                     }
                 }
-                for i in remove_indices.into_iter().rev() {
-                    self.gaps.as_mut().unwrap().remove(i);
-                }
-                self.gaps.as_mut().unwrap().iter_mut().for_each(|gap| {
+                for (i, gap) in self.gaps.as_mut().unwrap().iter_mut().enumerate() {
                     if let Some(new_handle) = remap.get(&gap.object) {
-                        gap.object = *new_handle;
+                        if let Some(new_handle) = new_handle {
+                            gap.object = *new_handle;
+                        } else {
+                            remove_indices.insert(i);
+                        }
                     }
                     if let crate::find::TimingType::EndThenStart {
                         object_handle_left, ..
                     } = &mut gap.timing_type
                         && let Some(new_handle) = remap.get(object_handle_left)
                     {
-                        *object_handle_left = *new_handle;
+                        if let Some(new_handle) = new_handle {
+                            *object_handle_left = *new_handle;
+                        } else {
+                            remove_indices.insert(i);
+                        }
                     }
-                });
+                }
+                let mut remove_indices: Vec<usize> = remove_indices.into_iter().collect();
+                remove_indices.sort_unstable();
+
+                for i in remove_indices.into_iter().rev() {
+                    self.gaps.as_mut().unwrap().remove(i);
+                }
             });
         });
     }
@@ -228,7 +239,7 @@ impl QuantizerGuiApp {
         gap: &crate::find::OffbeatInfo,
         object_handle_map: &mut std::collections::HashMap<
             aviutl2::generic::ObjectHandle,
-            aviutl2::generic::ObjectHandle,
+            Option<aviutl2::generic::ObjectHandle>,
         >,
     ) -> bool {
         let frame = egui::Frame::group(ui.style())
@@ -293,6 +304,25 @@ impl QuantizerGuiApp {
                             let res = self.jump_to_gap(gap);
                             if let Err(e) = res {
                                 log::error!("Failed to jump to gap: {e}");
+                            }
+                        }
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                                egui::Button::new("除外"),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            let res = crate::find::mark_ignored(&[gap.object], object_handle_map);
+                            match res {
+                                Ok(_) => {
+                                    log::info!("Gap ignored successfully");
+                                    remove = true;
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to add marker: {e}");
+                                }
                             }
                         }
                         if ui

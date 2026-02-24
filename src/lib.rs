@@ -1,11 +1,13 @@
 mod find;
 mod grid;
 mod gui;
+mod marker;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[aviutl2::plugin(GenericPlugin)]
 struct QuantizerAux2 {
     gui: aviutl2_eframe::EframeWindow,
+    marker: aviutl2::generic::SubPlugin<marker::IgnoreMarker>,
 }
 
 pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
@@ -13,24 +15,41 @@ pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
 pub static RESET_GAPS_ON_PROJECT_LOAD: AtomicBool = AtomicBool::new(false);
 
 impl aviutl2::generic::GenericPlugin for QuantizerAux2 {
-    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+    fn new(info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         aviutl2::logger::LogBuilder::new()
             .filter_level(aviutl2::logger::LevelFilter::Debug)
             .init();
         aviutl2::log::info!("Initializing Rusty Metronome Plugin...");
         Ok(Self {
             gui: aviutl2_eframe::EframeWindow::new("QuantizerAux2", gui::create_gui)?,
+            marker: aviutl2::generic::SubPlugin::new_filter_plugin(&info)?,
         })
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
+        registry.set_plugin_information(&format!(
+            "Quantize objects to BPM Grid / v{} / https://github.com/sevenc-nanashi/quantizer.aux2",
+            env!("CARGO_PKG_VERSION")
+        ));
         let _ = registry.register_window_client("quantizer.aux2", &self.gui);
+        registry.register_filter_plugin(&self.marker);
+        registry.register_menus::<Self>();
 
         EDIT_HANDLE.init(registry.create_edit_handle());
     }
 
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
         RESET_GAPS_ON_PROJECT_LOAD.store(true, Ordering::Relaxed);
+    }
+}
+
+#[aviutl2::generic::menus]
+impl QuantizerAux2 {
+    #[object(name = "[quantizer.aux2] 対象外にする")]
+    fn ignore_object(&mut self) -> aviutl2::AnyResult<()> {
+        let objects = EDIT_HANDLE.call_edit_section(|edit| edit.get_selected_objects())??;
+        crate::find::mark_ignored(&objects, &mut std::collections::HashMap::new())?;
+        Ok(())
     }
 }
 

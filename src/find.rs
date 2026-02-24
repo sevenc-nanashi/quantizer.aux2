@@ -157,6 +157,10 @@ pub fn find_offsync_objects(
                 continue;
             }
 
+            if edit.count_object_effect(&timing.object, crate::marker::IGNORE_MARKER_NAME)? > 0 {
+                continue;
+            }
+
             if i > 0 {
                 let prev_timing = &joined_timings[i - 1];
                 if prev_timing.position.layer == timing.position.layer
@@ -214,7 +218,7 @@ fn get_object_name(alias: &aviutl2::alias::Table) -> anyhow::Result<String> {
 
 pub fn fix_offbeat(
     offbeat_info: &OffbeatInfo,
-    object_handle_map: &mut std::collections::HashMap<ObjectHandle, ObjectHandle>,
+    object_handle_map: &mut std::collections::HashMap<ObjectHandle, Option<ObjectHandle>>,
 ) -> anyhow::Result<()> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
         let object = edit.object(&offbeat_info.object);
@@ -231,7 +235,7 @@ pub fn fix_offbeat(
                     0,
                 )?;
 
-                object_handle_map.insert(offbeat_info.object, new_object);
+                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::End { .. } => {
                 let new_alias = fix_ending_gap(&alias, offbeat_info.offset_frames)?;
@@ -244,7 +248,7 @@ pub fn fix_offbeat(
                     0,
                 )?;
 
-                object_handle_map.insert(offbeat_info.object, new_object);
+                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::Keyframe { keyframe_index, .. } => {
                 let new_alias =
@@ -258,7 +262,7 @@ pub fn fix_offbeat(
                     0,
                 )?;
 
-                object_handle_map.insert(offbeat_info.object, new_object);
+                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::EndThenStart {
                 object_handle_left, ..
@@ -286,8 +290,8 @@ pub fn fix_offbeat(
                     0,
                 )?;
 
-                object_handle_map.insert(*object_handle_left, new_left_object);
-                object_handle_map.insert(offbeat_info.object, new_right_object);
+                object_handle_map.insert(*object_handle_left, Some(new_left_object));
+                object_handle_map.insert(offbeat_info.object, Some(new_right_object));
             }
         }
 
@@ -371,4 +375,34 @@ fn fix_keyframe_gap(
         );
 
     Ok(new_alias)
+}
+
+pub fn mark_ignored(
+    objects: &[ObjectHandle],
+    object_handle_map: &mut std::collections::HashMap<ObjectHandle, Option<ObjectHandle>>,
+) -> anyhow::Result<()> {
+    crate::EDIT_HANDLE.call_edit_section(|edit| {
+        for object in objects {
+            let object = edit.object(object);
+            if edit.count_object_effect(object.handle, crate::marker::IGNORE_MARKER_NAME)? > 0 {
+                continue;
+            }
+            let mut alias = object.get_alias_parsed()?;
+            let object_table = alias
+                .get_table_mut("Object")
+                .context("Object table not found")?;
+            let num_tables = object_table.iter_subtables_as_array().count();
+            object_table.insert_table(&num_tables.to_string(), {
+                let mut t = aviutl2::alias::Table::new();
+                t.insert_value("effect.name", crate::marker::IGNORE_MARKER_NAME.to_string());
+                t
+            });
+            let position = object.get_layer_frame()?;
+            object.delete_object()?;
+            edit.create_object_from_alias(&alias.to_string(), position.layer, position.start, 0)?;
+            object_handle_map.insert(*object.handle, None);
+        }
+        anyhow::Ok(())
+    })??;
+    Ok(())
 }
