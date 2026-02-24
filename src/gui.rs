@@ -1,4 +1,4 @@
-use aviutl2::log;
+use aviutl2::{anyhow, log};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 
 pub(crate) struct QuantizerGuiApp {
@@ -7,10 +7,12 @@ pub(crate) struct QuantizerGuiApp {
     suppress_info_close_once: bool,
     header_collapsed: bool,
     version: String,
-    frame_count: i32,
+    frame_count: usize,
     target_start: bool,
     target_middle: bool,
     target_end: bool,
+
+    gaps: Option<Vec<crate::find::OffbeatInfo>>,
 }
 
 impl QuantizerGuiApp {
@@ -43,10 +45,11 @@ impl QuantizerGuiApp {
             suppress_info_close_once: false,
             header_collapsed,
             version: env!("CARGO_PKG_VERSION").to_string(),
-            frame_count: 0,
+            frame_count: 1,
             target_start: true,
             target_middle: true,
             target_end: true,
+            gaps: None,
         }
     }
 
@@ -112,41 +115,209 @@ impl QuantizerGuiApp {
     }
 
     fn render_main_panel(&mut self, ctx: &egui::Context) {
+        if self.gaps.is_some() {
+            self.render_gaps_panel(ctx);
+        } else {
+            self.render_find_panel(ctx);
+        }
+    }
+
+    fn render_find_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let shift_pressed = ui.input(|i| i.modifiers.shift);
-            let fix_label = if shift_pressed {
-                "すべてのズレを直す"
-            } else {
-                "ズレを直す"
-            };
-            ui.horizontal(|ui| {
-                if ui.button("次のズレ").clicked() {
-                    log::info!("次のズレ button clicked");
+            let response = ui
+                .add_sized(
+                    egui::vec2(ui.available_width(), 40.0),
+                    egui::Button::new("ズレを検出"),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+            if response.clicked() {
+                let find_target = crate::find::FindTarget {
+                    start: self.target_start,
+                    keyframe: self.target_middle,
+                    end: self.target_end,
+                };
+                match crate::find::find_offsync_objects(&find_target, self.frame_count) {
+                    Ok(gaps) => {
+                        log::info!("Found {} off-sync objects", gaps.len());
+                        self.gaps = Some(gaps);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to find off-sync objects: {e}");
+                        self.gaps = None;
+                    }
                 }
-                if ui.button(fix_label).clicked() {
-                    log::info!("{} button clicked", fix_label);
-                }
-            });
+            }
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.label("フレーム数:");
+                let max_frames = crate::find::max_frames_per_beat();
                 ui.add_sized(
                     egui::vec2(80.0, ui.spacing().interact_size.y),
-                    egui::DragValue::new(&mut self.frame_count).range(0..=i32::MAX),
+                    egui::DragValue::new(&mut self.frame_count)
+                        .range(1..=((max_frames / 2.0).floor() as i32)),
                 );
             });
 
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
+            ui.vertical(|ui| {
                 ui.label("対象:");
                 ui.checkbox(&mut self.target_start, "開始位置");
-                ui.separator();
                 ui.checkbox(&mut self.target_middle, "中継点");
-                ui.separator();
                 ui.checkbox(&mut self.target_end, "終了位置");
             });
         });
+    }
+
+    fn render_gaps_panel(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let return_response = ui
+                .add_sized(
+                    egui::vec2(ui.available_width(), 40.0),
+                    egui::Button::new("検出に戻る"),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+            if return_response.clicked() {
+                self.gaps = None;
+                return;
+            }
+            ui.label(format!(
+                "見つかったズレ: {} 件",
+                self.gaps.as_ref().unwrap().len()
+            ));
+
+            if self.gaps.as_ref().unwrap().is_empty() {
+                return;
+            }
+            ui.add_space(8.0);
+            ui.scope(|ui| {
+                ui.visuals_mut().override_text_color = Some(ui.visuals().warn_fg_color);
+                ui.label("手動でオブジェクトを修正した場合は「検出に戻る」を押してください。")
+            });
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let mut remove_indices = Vec::new();
+                let mut remap = std::collections::HashMap::new();
+                for (i, gap) in self.gaps.as_ref().unwrap().iter().enumerate() {
+                    if self.draw_gap_card(ui, gap, &mut remap) {
+                        remove_indices.push(i);
+                    }
+                }
+                for i in remove_indices.into_iter().rev() {
+                    self.gaps.as_mut().unwrap().remove(i);
+                }
+                self.gaps.as_mut().unwrap().iter_mut().for_each(|gap| {
+                    if let Some(new_handle) = remap.get(&gap.object) {
+                        gap.object = *new_handle;
+                    }
+                    if let crate::find::TimingType::EndThenStart {
+                        object_handle_left, ..
+                    } = &mut gap.timing_type
+                        && let Some(new_handle) = remap.get(object_handle_left)
+                    {
+                        *object_handle_left = *new_handle;
+                    }
+                });
+            });
+        });
+    }
+
+    fn draw_gap_card(
+        &self,
+        ui: &mut egui::Ui,
+        gap: &crate::find::OffbeatInfo,
+        object_handle_map: &mut std::collections::HashMap<
+            aviutl2::generic::ObjectHandle,
+            aviutl2::generic::ObjectHandle,
+        >,
+    ) -> bool {
+        let frame = egui::Frame::group(ui.style())
+            .fill(ui.visuals().faint_bg_color)
+            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+            .inner_margin(egui::Margin::symmetric(8, 4));
+        let available_width = ui.available_width();
+        let mut remove = false;
+        ui.allocate_ui_with_layout(
+            egui::vec2(available_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                frame.show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        match &gap.timing_type {
+                            crate::find::TimingType::Start { object_name } => {
+                                ui.label("種別：開始位置");
+                                ui.label(format!("オブジェクト：{}", object_name));
+                            }
+                            crate::find::TimingType::Keyframe {
+                                object_name,
+                                keyframe_index,
+                            } => {
+                                ui.label(format!("種別：中継点（{}）", keyframe_index + 1));
+                                ui.label(format!("オブジェクト：{}", object_name));
+                            }
+                            crate::find::TimingType::End { object_name } => {
+                                ui.label("種別：終了位置");
+                                ui.label(format!("オブジェクト：{}", object_name));
+                            }
+                            crate::find::TimingType::EndThenStart {
+                                object_name_left,
+                                object_name_right,
+                                ..
+                            } => {
+                                ui.label("種別：境界");
+                                ui.label(format!(
+                                    "オブジェクト：{} → {}",
+                                    object_name_left, object_name_right
+                                ));
+                            }
+                        }
+                        ui.label(format!("レイヤー：{}", gap.layer_name));
+                        ui.label(format!("フレーム：{}f", gap.frame));
+                        ui.label(format!(
+                            "ずれ：{}",
+                            if gap.offset_frames > 0 {
+                                format!("+{}f", gap.offset_frames)
+                            } else {
+                                format!("{}f", gap.offset_frames)
+                            }
+                        ));
+                        ui.add_space(4.0);
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                                egui::Button::new("ジャンプ"),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            let res = self.jump_to_gap(gap);
+                            if let Err(e) = res {
+                                log::error!("Failed to jump to gap: {e}");
+                            }
+                        }
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                                egui::Button::new("補正"),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            let res = crate::find::fix_offbeat(gap, object_handle_map);
+                            match res {
+                                Ok(_) => {
+                                    log::info!("Gap fixed successfully");
+                                    remove = true;
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to fix gap: {e}");
+                                }
+                            }
+                        }
+                    });
+                });
+            },
+        );
+        remove
     }
 
     fn render_info_window(&mut self, ctx: &egui::Context) {
@@ -203,10 +374,28 @@ impl QuantizerGuiApp {
             self.show_info = false;
         }
     }
+
+    fn jump_to_gap(&self, gap: &crate::find::OffbeatInfo) -> aviutl2::AnyResult<()> {
+        crate::EDIT_HANDLE.call_edit_section(|edit| {
+            edit.set_cursor_layer_frame(gap.position.layer, gap.frame)?;
+            edit.focus_object(&gap.object)?;
+
+            anyhow::Ok(())
+        })??;
+        Ok(())
+    }
 }
 
 impl eframe::App for QuantizerGuiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if !crate::EDIT_HANDLE.is_ready() {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.centered_and_justified(|ui| {
+                    ui.label("Loading...");
+                });
+            });
+            return;
+        }
         if self.header_collapsed {
             self.render_collapsed_header(ctx);
         } else {
