@@ -22,4 +22,20 @@ impl aviutl2::filter::FilterPlugin for IgnoreMarker {
             config_items: vec![],
         }
     }
+
+    fn proc_video(
+        &self,
+        _config: &[aviutl2::filter::FilterConfigItem],
+        _video: &mut aviutl2::filter::FilterProcVideo,
+    ) -> aviutl2::AnyResult<()> {
+        Ok(())
+    }
+
+    fn proc_audio(
+        &self,
+        _config: &[aviutl2::filter::FilterConfigItem],
+        _audio: &mut aviutl2::filter::FilterProcAudio,
+    ) -> aviutl2::AnyResult<()> {
+        Ok(())
+    }
 }
