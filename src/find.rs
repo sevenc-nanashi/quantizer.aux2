@@ -213,7 +213,14 @@ fn get_object_name(alias: &aviutl2::alias::Table) -> anyhow::Result<String> {
         effect_name
     };
 
-    Ok(effect_name.to_string())
+    let section_translated_name =
+        aviutl2::config::get_language_text(effect_name, effect_name).unwrap();
+    if &section_translated_name != effect_name {
+        return Ok(section_translated_name);
+    }
+
+    let effect_translated_name = aviutl2::config::get_language_text("Effect", effect_name).unwrap();
+    Ok(effect_translated_name)
 }
 
 pub fn fix_offbeat(

@@ -16,7 +16,7 @@ source = "./i18n/English.quantizer_aux2.aul2"
 [artifacts.English-aul2]
 enabled = false
 destination = "Language/English.aul2"
-source = "https://raw.githubusercontent.com/aviutl2/aviutl2_community_translation/refs/heads/main/locales/original_english.aul2"
+source = "https://raw.githubusercontent.com/aviutl2/aviutl2_community_translation/refs/heads/main/locales/community_en.aul2"
 
 [artifacts.English-aul2.profiles.debug]
 enabled = true

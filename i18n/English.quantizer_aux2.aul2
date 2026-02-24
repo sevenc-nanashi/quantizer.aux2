@@ -1,0 +1,32 @@
+[quantizer.aux2]
+プラグイン情報=Plugin Information
+ヘッダーを折りたたむ=Collapse Header
+ズレを検出=Detect Offbeat
+フレーム数：=Frames:
+対象：=Targets:
+開始位置=Start
+中継点=Keyframe
+終了位置=End
+検出に戻る=Back to Detection
+見つかったズレ: {count} 件=Found Offbeats: {count}
+手動でオブジェクトを修正した場合は「検出に戻る」を押してください。=If you manually fix objects, press "Back to Detection".
+種別：開始位置=Type: Start
+オブジェクト：{name}=Object: {name}
+種別：中継点（{index}）=Type: Keyframe ({index})
+種別：終了位置=Type: End
+種別：境界=Type: Boundary
+オブジェクト：{left} → {right}=Object: {left} -> {right}
+レイヤー：{layer}=Layer: {layer}
+フレーム：{frame}f=Frame: {frame}f
+ずれ：{offset}=Offset: {offset}
+ジャンプ=Jump
+除外=Ignore
+補正=Fix
+バージョン: {version}=Version: {version}
+キーフレームのズレを移動・補正する補助プラグインです。=A helper plugin to move and fix keyframe offbeats.
+開発者=Developer
+ソースコード:=Source Code:
+読み込み中...=Loading...
+
+[quantizer.aux2対象外]
+quantizer.aux2対象外=Exclude from quantizer.aux2

@@ -1,4 +1,4 @@
-use aviutl2::{anyhow, log};
+use aviutl2::{anyhow, config::translate as tr, log};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::atomic::Ordering;
 
@@ -14,6 +14,15 @@ pub(crate) struct QuantizerGuiApp {
     target_end: bool,
 
     gaps: Option<Vec<crate::find::OffbeatInfo>>,
+}
+
+fn tr_format(template: &str, args: &[(&str, &str)]) -> String {
+    let mut translated = tr(template).to_string();
+    for (name, value) in args {
+        let placeholder = format!("{{{}}}", name);
+        translated = translated.replace(&placeholder, value);
+    }
+    translated
 }
 
 impl QuantizerGuiApp {
@@ -71,7 +80,7 @@ impl QuantizerGuiApp {
                             egui::Button::new("i"),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("プラグイン情報");
+                        .on_hover_text(tr("プラグイン情報"));
                     if info.clicked() {
                         self.show_info = true;
                         self.suppress_info_close_once = true;
@@ -86,7 +95,7 @@ impl QuantizerGuiApp {
                             egui::Button::new("^"),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("ヘッダーを折りたたむ");
+                        .on_hover_text(tr("ヘッダーを折りたたむ"));
                     if collapse.clicked() {
                         self.header_collapsed = true;
                     }
@@ -128,7 +137,7 @@ impl QuantizerGuiApp {
             let response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
-                    egui::Button::new("ズレを検出"),
+                    egui::Button::new(tr("ズレを検出")),
                 )
                 .on_hover_cursor(egui::CursorIcon::PointingHand);
             if response.clicked() {
@@ -150,22 +159,20 @@ impl QuantizerGuiApp {
             }
 
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.label("フレーム数：");
-                let max_frames = crate::find::max_frames_per_beat();
-                ui.add_sized(
-                    egui::vec2(80.0, ui.spacing().interact_size.y),
-                    egui::DragValue::new(&mut self.frame_count)
-                        .range(1..=((max_frames / 2.0).floor() as i32)),
-                );
-            });
+            ui.label(tr("フレーム数："));
+            let max_frames = crate::find::max_frames_per_beat();
+            ui.add_sized(
+                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                egui::DragValue::new(&mut self.frame_count)
+                    .range(1..=((max_frames / 2.0).floor() as i32)),
+            );
 
             ui.add_space(8.0);
             ui.vertical(|ui| {
-                ui.label("対象：");
-                ui.checkbox(&mut self.target_start, "開始位置");
-                ui.checkbox(&mut self.target_middle, "中継点");
-                ui.checkbox(&mut self.target_end, "終了位置");
+                ui.label(tr("対象："));
+                ui.checkbox(&mut self.target_start, tr("開始位置"));
+                ui.checkbox(&mut self.target_middle, tr("中継点"));
+                ui.checkbox(&mut self.target_end, tr("終了位置"));
             });
         });
     }
@@ -175,16 +182,17 @@ impl QuantizerGuiApp {
             let return_response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
-                    egui::Button::new("検出に戻る"),
+                    egui::Button::new(tr("検出に戻る")),
                 )
                 .on_hover_cursor(egui::CursorIcon::PointingHand);
             if return_response.clicked() {
                 self.gaps = None;
                 return;
             }
-            ui.label(format!(
-                "見つかったズレ: {} 件",
-                self.gaps.as_ref().unwrap().len()
+            let gap_count = self.gaps.as_ref().unwrap().len().to_string();
+            ui.label(tr_format(
+                "見つかったズレ: {count} 件",
+                &[("count", &gap_count)],
             ));
 
             if self.gaps.as_ref().unwrap().is_empty() {
@@ -193,7 +201,9 @@ impl QuantizerGuiApp {
             ui.add_space(8.0);
             ui.scope(|ui| {
                 ui.visuals_mut().override_text_color = Some(ui.visuals().warn_fg_color);
-                ui.label("手動でオブジェクトを修正した場合は「検出に戻る」を押してください。")
+                ui.label(tr(
+                    "手動でオブジェクトを修正した場合は「検出に戻る」を押してください。",
+                ))
             });
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut remove_indices = std::collections::HashSet::new();
@@ -256,47 +266,62 @@ impl QuantizerGuiApp {
                     ui.vertical(|ui| {
                         match &gap.timing_type {
                             crate::find::TimingType::Start { object_name } => {
-                                ui.label("種別：開始位置");
-                                ui.label(format!("オブジェクト：{}", object_name));
+                                ui.label(tr("種別：開始位置"));
+                                ui.label(tr_format(
+                                    "オブジェクト：{name}",
+                                    &[("name", object_name)],
+                                ));
                             }
                             crate::find::TimingType::Keyframe {
                                 object_name,
                                 keyframe_index,
                             } => {
-                                ui.label(format!("種別：中継点（{}）", keyframe_index + 1));
-                                ui.label(format!("オブジェクト：{}", object_name));
+                                let keyframe_index = (keyframe_index + 1).to_string();
+                                ui.label(tr_format(
+                                    "種別：中継点（{index}）",
+                                    &[("index", &keyframe_index)],
+                                ));
+                                ui.label(tr_format(
+                                    "オブジェクト：{name}",
+                                    &[("name", object_name)],
+                                ));
                             }
                             crate::find::TimingType::End { object_name } => {
-                                ui.label("種別：終了位置");
-                                ui.label(format!("オブジェクト：{}", object_name));
+                                ui.label(tr("種別：終了位置"));
+                                ui.label(tr_format(
+                                    "オブジェクト：{name}",
+                                    &[("name", object_name)],
+                                ));
                             }
                             crate::find::TimingType::EndThenStart {
                                 object_name_left,
                                 object_name_right,
                                 ..
                             } => {
-                                ui.label("種別：境界");
-                                ui.label(format!(
-                                    "オブジェクト：{} → {}",
-                                    object_name_left, object_name_right
+                                ui.label(tr("種別：境界"));
+                                ui.label(tr_format(
+                                    "オブジェクト：{left} → {right}",
+                                    &[("left", object_name_left), ("right", object_name_right)],
                                 ));
                             }
                         }
-                        ui.label(format!("レイヤー：{}", gap.layer_name));
-                        ui.label(format!("フレーム：{}f", gap.frame));
-                        ui.label(format!(
-                            "ずれ：{}",
-                            if gap.offset_frames > 0 {
-                                format!("+{}f", gap.offset_frames)
-                            } else {
-                                format!("{}f", gap.offset_frames)
-                            }
+                        ui.label(tr_format(
+                            "レイヤー：{layer}",
+                            &[("layer", &gap.layer_name)],
                         ));
+                        let frame = gap.frame.to_string();
+                        ui.label(tr_format("フレーム：{frame}f", &[("frame", &frame)]));
+                        let offset = if gap.offset_frames > 0 {
+                            format!("+{}f", gap.offset_frames)
+                        } else {
+                            format!("{}f", gap.offset_frames)
+                        };
+                        ui.label(tr_format("ずれ：{offset}", &[("offset", &offset)]));
                         ui.add_space(4.0);
                         if ui
                             .add_sized(
                                 egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new("ジャンプ"),
+                                egui::Button::new(tr("ジャンプ")),
                             )
                             .on_hover_cursor(egui::CursorIcon::PointingHand)
                             .clicked()
@@ -309,26 +334,7 @@ impl QuantizerGuiApp {
                         if ui
                             .add_sized(
                                 egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new("除外"),
-                            )
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
-                            let res = crate::find::mark_ignored(&[gap.object], object_handle_map);
-                            match res {
-                                Ok(_) => {
-                                    log::info!("Gap ignored successfully");
-                                    remove = true;
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to add marker: {e}");
-                                }
-                            }
-                        }
-                        if ui
-                            .add_sized(
-                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new("補正"),
+                                egui::Button::new(tr("補正")),
                             )
                             .on_hover_cursor(egui::CursorIcon::PointingHand)
                             .clicked()
@@ -341,6 +347,25 @@ impl QuantizerGuiApp {
                                 }
                                 Err(e) => {
                                     log::error!("Failed to fix gap: {e}");
+                                }
+                            }
+                        }
+                        if ui
+                            .add_sized(
+                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                                egui::Button::new(tr("除外")),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .clicked()
+                        {
+                            let res = crate::find::mark_ignored(&[gap.object], object_handle_map);
+                            match res {
+                                Ok(_) => {
+                                    log::info!("Gap ignored successfully");
+                                    remove = true;
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to add marker: {e}");
                                 }
                             }
                         }
@@ -379,13 +404,16 @@ impl QuantizerGuiApp {
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label(format!("バージョン: {}", self.version));
-                ui.label("キーフレームのズレを移動・補正する補助プラグインです。");
+                ui.label(tr_format(
+                    "バージョン: {version}",
+                    &[("version", &self.version)],
+                ));
+                ui.label(tr("キーフレームのズレを移動・補正する補助プラグインです。"));
                 ui.add_space(8.0);
-                ui.label("開発者");
+                ui.label(tr("開発者"));
                 ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
                 ui.add_space(4.0);
-                ui.label("ソースコード:");
+                ui.label(tr("ソースコード:"));
                 ui.hyperlink_to(
                     "sevenc-nanashi/quantizer.aux2",
                     "https://github.com/sevenc-nanashi/quantizer.aux2",
@@ -425,9 +453,10 @@ impl eframe::App for QuantizerGuiApp {
         if !crate::EDIT_HANDLE.is_ready() {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.centered_and_justified(|ui| {
-                    ui.label("Loading...");
+                    ui.label(tr("読み込み中..."));
                 });
             });
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
             return;
         }
         if self.header_collapsed {
