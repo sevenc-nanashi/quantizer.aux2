@@ -148,16 +148,18 @@ pub fn find_offsync_objects(
             }
 
             // NOTE: 終端はBPMグリッドに右に触れる感じで合っていてほしいので、そう補正する
-            let adjusted_frame = if matches!(timing.timing_type, TimingType::End { .. }) {
-                timing.frame + 1
+            let offset = if matches!(timing.timing_type, TimingType::End { .. }) {
+                1
             } else {
-                timing.frame
+                0
             };
+            let adjusted_frame = timing.frame as i64 + offset;
             let current_beat = crate::grid::frame_to_beat(&edit.info, adjusted_frame as f64);
             let nearest_beat = current_beat.round();
             let nearest_beat_frame =
                 crate::grid::beat_to_frame_int(&edit.info, nearest_beat) as usize;
-            let offset_frames = adjusted_frame as i64 - nearest_beat_frame as i64;
+            let offset_frames = adjusted_frame - nearest_beat_frame as i64;
+            let adjusted_nearest_beat_frame = nearest_beat_frame as i64 - offset;
             if offset_frames.unsigned_abs() as usize > distance || offset_frames == 0 {
                 continue;
             }
@@ -169,7 +171,7 @@ pub fn find_offsync_objects(
             if i > 0 {
                 let prev_timing = &joined_timings[i - 1];
                 if prev_timing.position.layer == timing.position.layer
-                    && nearest_beat_frame <= prev_timing.frame
+                    && adjusted_nearest_beat_frame <= (prev_timing.frame as i64)
                 {
                     continue;
                 }
@@ -177,7 +179,7 @@ pub fn find_offsync_objects(
             if i < joined_timings.len() - 1 {
                 let next_timing = &joined_timings[i + 1];
                 if next_timing.position.layer == timing.position.layer
-                    && nearest_beat_frame >= next_timing.frame
+                    && adjusted_nearest_beat_frame >= (next_timing.frame as i64)
                 {
                     continue;
                 }
@@ -385,17 +387,6 @@ fn fix_keyframe_gap(
         );
 
     Ok(new_alias)
-}
-
-/// 延長できない可能性があるオブジェクトかどうか（特に音声ファイルと動画ファイル）
-fn is_timed_object(alias: &aviutl2::alias::Table) -> anyhow::Result<bool> {
-    let object_0_table = alias
-        .get_table("Object.0")
-        .context("Object table not found")?;
-    let effect_name = object_0_table
-        .get_value("effect.name")
-        .context("effect.name not found")?;
-    Ok(effect_name == "音声ファイル" || effect_name == "動画ファイル")
 }
 
 pub fn mark_ignored(
