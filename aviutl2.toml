@@ -21,6 +21,13 @@ source = "https://raw.githubusercontent.com/aviutl2/aviutl2_community_translatio
 [artifacts.English-aul2.profiles.debug]
 enabled = true
 
+[artifacts.简体中文-quantizer_aux2-aul2]
+destination = "Language/简体中文.quantizer_aux2.aul2"
+source = "./i18n/简体中文.quantizer_aux2.aul2"
+
+[artifacts.简体中文-aul2.profiles.debug]
+enabled = true
+
 [artifacts.quantizer_aux2]
 destination = "Plugin/quantizer.aux2"
 
