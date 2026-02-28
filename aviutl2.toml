@@ -42,3 +42,6 @@ author = "Nanashi."
 download_source = { type = "github", owner = "sevenc-nanashi", repo = "quantizer.aux2" }
 homepage = "https://github.com/sevenc-nanashi/quantizer.aux2"
 license = { type = "MIT", template = false, text = { type = "file", path = "./LICENSE" } }
+
+[release]
+package_information = "{name} v{version} / BPMグリッドから少しズレているオブジェクトを補正するプラグイン"
