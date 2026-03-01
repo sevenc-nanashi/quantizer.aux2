@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-aviutl2 = { git = "https://github.com/sevenc-nanashi/aviutl2-rs.git" }
-aviutl2-eframe = { git = "https://github.com/sevenc-nanashi/aviutl2-rs.git" }
+aviutl2 = "0.20.1"
+aviutl2-eframe = "0.20.1"

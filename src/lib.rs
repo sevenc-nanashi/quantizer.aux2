@@ -2,6 +2,7 @@ mod find;
 mod grid;
 mod gui;
 mod marker;
+use aviutl2::tracing;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[aviutl2::plugin(GenericPlugin)]
@@ -16,21 +17,33 @@ pub static RESET_GAPS_ON_PROJECT_LOAD: AtomicBool = AtomicBool::new(false);
 
 impl aviutl2::generic::GenericPlugin for QuantizerAux2 {
     fn new(info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(aviutl2::logger::LevelFilter::Debug)
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
+            } else {
+                tracing::Level::INFO
+            })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
-        aviutl2::log::info!("Initializing Rusty Metronome Plugin...");
+        aviutl2::tracing::info!("Initializing Rusty Metronome Plugin...");
         Ok(Self {
             gui: aviutl2_eframe::EframeWindow::new("QuantizerAux2", gui::create_gui)?,
             marker: aviutl2::generic::SubPlugin::new_filter_plugin(&info)?,
         })
     }
 
+    fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+        aviutl2::generic::GenericPluginTable {
+            name: "quantizer.aux2".to_string(),
+            information: format!(
+                "Quantize objects to BPM Grid / v{} / https://github.com/sevenc-nanashi/quantizer.aux2",
+                env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
+
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry.set_plugin_information(&format!(
-            "Quantize objects to BPM Grid / v{} / https://github.com/sevenc-nanashi/quantizer.aux2",
-            env!("CARGO_PKG_VERSION")
-        ));
         let _ = registry.register_window_client("quantizer.aux2", &self.gui);
         registry.register_filter_plugin(&self.marker);
         registry.register_menus::<Self>();
