@@ -1,4 +1,4 @@
-use aviutl2::{anyhow, config::translate as tr, log};
+use aviutl2::{anyhow, config::translate as tr, tracing};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::atomic::Ordering;
 
@@ -166,7 +166,7 @@ impl QuantizerGuiApp {
                 };
                 match crate::find::find_offsync_objects(&find_target, self.frame_count) {
                     Ok(mut gaps) => {
-                        log::info!("Found {} off-sync objects", gaps.len());
+                        tracing::info!("Found {} off-sync objects", gaps.len());
                         gaps.sort_by_key(if self.sort_by == SortBy::Layer {
                             |gap: &crate::find::OffbeatInfo| (gap.position.layer, gap.frame)
                         } else {
@@ -175,7 +175,7 @@ impl QuantizerGuiApp {
                         self.gaps = Some(gaps);
                     }
                     Err(e) => {
-                        log::error!("Failed to find off-sync objects: {e}");
+                        tracing::error!("Failed to find off-sync objects: {e}");
                         self.gaps = None;
                     }
                 }
@@ -303,7 +303,7 @@ impl QuantizerGuiApp {
                     if let Some(next_gap) = self.gaps.as_ref().unwrap().get(*next_index) {
                         let res = self.jump_to_gap(next_gap);
                         if let Err(e) = res {
-                            log::error!("Failed to jump to next gap: {e}");
+                            tracing::error!("Failed to jump to next gap: {e}");
                         }
                     }
                 }
@@ -399,7 +399,7 @@ impl QuantizerGuiApp {
                         {
                             let res = self.jump_to_gap(gap);
                             if let Err(e) = res {
-                                log::error!("Failed to jump to gap: {e}");
+                                tracing::error!("Failed to jump to gap: {e}");
                             }
                         }
                         if ui
@@ -413,11 +413,11 @@ impl QuantizerGuiApp {
                             let res = crate::find::fix_offbeat(gap, object_handle_map);
                             match res {
                                 Ok(_) => {
-                                    log::info!("Gap fixed successfully");
+                                    tracing::info!("Gap fixed successfully");
                                     remove = true;
                                 }
                                 Err(e) => {
-                                    log::error!("Failed to fix gap: {e}");
+                                    tracing::error!("Failed to fix gap: {e}");
                                 }
                             }
                         }
@@ -432,11 +432,11 @@ impl QuantizerGuiApp {
                             let res = crate::find::mark_ignored(&[gap.object], object_handle_map);
                             match res {
                                 Ok(_) => {
-                                    log::info!("Gap ignored successfully");
+                                    tracing::info!("Gap ignored successfully");
                                     remove = true;
                                 }
                                 Err(e) => {
-                                    log::error!("Failed to add marker: {e}");
+                                    tracing::error!("Failed to add marker: {e}");
                                 }
                             }
                         }
@@ -449,7 +449,7 @@ impl QuantizerGuiApp {
                                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                                 .clicked()
                         {
-                            log::info!("Skipping gap and jumping to next");
+                            tracing::info!("Skipping gap and jumping to next");
                             remove = true;
                         }
                     });

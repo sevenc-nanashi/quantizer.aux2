@@ -281,26 +281,29 @@ pub fn fix_offbeat(
             TimingType::EndThenStart {
                 object_handle_left, ..
             } => {
+                let right_object = object;
+                let right_alias = right_object.get_alias_parsed()?;
+                let new_right_alias = fix_starting_gap(&right_alias, offbeat_info.offset_frames)?;
+                let right_position = right_object.get_layer_frame()?;
+
                 let left_object = edit.object(object_handle_left);
                 let left_alias = left_object.get_alias_parsed()?;
                 let new_left_alias = fix_ending_gap(&left_alias, offbeat_info.offset_frames)?;
-                let position = left_object.get_layer_frame()?;
-                left_object.delete_object()?;
-                let new_left_object = edit.create_object_from_alias(
-                    &new_left_alias.to_string(),
-                    position.layer,
-                    position.start,
-                    0,
-                )?;
+                let left_position = left_object.get_layer_frame()?;
 
-                let right_alias = object.get_alias_parsed()?;
-                let new_right_alias = fix_starting_gap(&right_alias, offbeat_info.offset_frames)?;
-                let position = object.get_layer_frame()?;
-                object.delete_object()?;
+                left_object.delete_object()?;
+                right_object.delete_object()?;
+
                 let new_right_object = edit.create_object_from_alias(
                     &new_right_alias.to_string(),
-                    position.layer,
-                    ((position.start as i64) - offbeat_info.offset_frames) as usize,
+                    right_position.layer,
+                    ((right_position.start as i64) - offbeat_info.offset_frames) as usize,
+                    0,
+                )?;
+                let new_left_object = edit.create_object_from_alias(
+                    &new_left_alias.to_string(),
+                    left_position.layer,
+                    left_position.start,
                     0,
                 )?;
 
