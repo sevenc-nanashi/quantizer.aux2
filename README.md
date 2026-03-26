@@ -3,6 +3,7 @@
 [English](README.en.md) | [日本語](README.md)
 
 [![AviUtl2 Catalog](https://aviutl2-catalog-badge.sevenc7c.workers.dev/badge/v/sevenc-nanashi.quantizer-aux2)](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.quantizer-aux2)
+[![sm46011415](https://niconi-commons-badge.sevenc7c.workers.dev/badge/sm46011415)](https://commons.nicovideo.jp/works/sm46011415)
 
 BPMグリッドから少しズレているオブジェクトを補正するAviUtl2の汎用プラグイン。
 
