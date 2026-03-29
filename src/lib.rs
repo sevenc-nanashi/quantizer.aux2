@@ -44,7 +44,9 @@ impl aviutl2::generic::GenericPlugin for QuantizerAux2 {
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        let _ = registry.register_window_client("quantizer.aux2", &self.gui);
+        if let Ok(handle) = self.gui.handle() {
+            let _ = registry.register_window_client("quantizer.aux2", &handle);
+        }
         registry.register_filter_plugin(&self.marker);
         registry.register_menus::<Self>();
 

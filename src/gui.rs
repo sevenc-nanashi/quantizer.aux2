@@ -80,8 +80,8 @@ impl QuantizerGuiApp {
         }
     }
 
-    fn render_header(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    fn render_header(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::top("toolbar").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui.heading("quantizer.aux2").interact(egui::Sense::click());
                 if clicked.secondary_clicked() {
@@ -121,10 +121,10 @@ impl QuantizerGuiApp {
         });
     }
 
-    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
-        let toolbar = egui::TopBottomPanel::top("header")
-            .exact_height(8.0)
-            .show(ctx, |_ui| {});
+    fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
+        let toolbar = egui::Panel::top("header")
+            .exact_size(8.0)
+            .show_inside(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -141,16 +141,16 @@ impl QuantizerGuiApp {
         }
     }
 
-    fn render_main_panel(&mut self, ctx: &egui::Context) {
+    fn render_main_panel(&mut self, ui: &mut egui::Ui) {
         if self.gaps.is_some() {
-            self.render_gaps_panel(ctx);
+            self.render_gaps_panel(ui);
         } else {
-            self.render_find_panel(ctx);
+            self.render_find_panel(ui);
         }
     }
 
-    fn render_find_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn render_find_panel(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
@@ -201,8 +201,8 @@ impl QuantizerGuiApp {
         });
     }
 
-    fn render_gaps_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn render_gaps_panel(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let return_response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
@@ -529,27 +529,27 @@ impl QuantizerGuiApp {
 }
 
 impl eframe::App for QuantizerGuiApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if crate::RESET_GAPS_ON_PROJECT_LOAD.swap(false, Ordering::Relaxed) {
             self.gaps = None;
         }
         if !crate::EDIT_HANDLE.is_ready() {
-            egui::CentralPanel::default().show(ctx, |ui| {
+            egui::CentralPanel::default().show_inside(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     ui.label(tr("読み込み中..."));
                 });
             });
-            ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            ui.request_repaint_after(std::time::Duration::from_millis(100));
             return;
         }
         if self.header_collapsed {
-            self.render_collapsed_header(ctx);
+            self.render_collapsed_header(ui);
         } else {
-            self.render_header(ctx);
+            self.render_header(ui);
         }
-        self.render_main_panel(ctx);
-        self.render_info_window(ctx);
-        ctx.data_mut(|data| {
+        self.render_main_panel(ui);
+        self.render_info_window(ui);
+        ui.data_mut(|data| {
             data.insert_persisted(egui::Id::new("header_collapsed"), self.header_collapsed);
         });
     }

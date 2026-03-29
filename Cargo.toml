@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-aviutl2 = "0.20.1"
-aviutl2-eframe = "0.20.1"
+aviutl2 = "0.22.0"
+aviutl2-eframe = "0.22.0"
