@@ -1978,7 +1978,7 @@ dependencies = [
 
 [[package]]
 name = "quantizer-aux2"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "aviutl2",
  "aviutl2-eframe",
