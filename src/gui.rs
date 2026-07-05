@@ -183,7 +183,13 @@ impl QuantizerGuiApp {
 
             ui.add_space(8.0);
             ui.label(tr("フレーム数："));
-            let max_frames = crate::find::max_frames_per_beat();
+            let max_frames = match crate::find::max_frames_per_beat() {
+                Ok(max_frames) => max_frames,
+                Err(e) => {
+                    tracing::error!("Failed to calculate max frames per beat: {e}");
+                    return;
+                }
+            };
             ui.add_sized(
                 egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
                 egui::DragValue::new(&mut self.frame_count)
@@ -520,7 +526,7 @@ impl QuantizerGuiApp {
     fn jump_to_gap(&self, gap: &crate::find::OffbeatInfo) -> aviutl2::AnyResult<()> {
         crate::EDIT_HANDLE.call_edit_section(|edit| {
             edit.set_cursor_layer_frame(gap.position.layer, gap.frame)?;
-            edit.focus_object(&gap.object)?;
+            edit.focus_object(gap.object)?;
 
             anyhow::Ok(())
         })??;
@@ -530,6 +536,7 @@ impl QuantizerGuiApp {
 
 impl eframe::App for QuantizerGuiApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         if crate::RESET_GAPS_ON_PROJECT_LOAD.swap(false, Ordering::Relaxed) {
             self.gaps = None;
         }
@@ -539,7 +546,7 @@ impl eframe::App for QuantizerGuiApp {
                     ui.label(tr("読み込み中..."));
                 });
             });
-            ui.request_repaint_after(std::time::Duration::from_millis(100));
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
             return;
         }
         if self.header_collapsed {
@@ -548,8 +555,8 @@ impl eframe::App for QuantizerGuiApp {
             self.render_header(ui);
         }
         self.render_main_panel(ui);
-        self.render_info_window(ui);
-        ui.data_mut(|data| {
+        self.render_info_window(&ctx);
+        ctx.data_mut(|data| {
             data.insert_persisted(egui::Id::new("header_collapsed"), self.header_collapsed);
         });
     }

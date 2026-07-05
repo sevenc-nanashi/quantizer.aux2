@@ -11,11 +11,11 @@ pub struct FindTarget {
     pub project_end: bool,
 }
 
-pub fn max_frames_per_beat() -> f64 {
-    let info = crate::EDIT_HANDLE.get_edit_info();
-    let fps = *info.fps.numer() as f64 / *info.fps.denom() as f64;
-    let bpm = info.grid_bpm_tempo as f64;
-    60.0 * fps / bpm
+pub fn max_frames_per_beat() -> anyhow::Result<f64> {
+    crate::EDIT_HANDLE.call_edit_section(|edit| {
+        let bpm_list = edit.get_grid_bpm_list()?;
+        crate::grid::max_frames_per_beat(&edit.info, &bpm_list)
+    })?
 }
 
 #[derive(Debug, Clone)]
@@ -51,17 +51,18 @@ pub fn find_offsync_objects(
     distance: usize,
 ) -> anyhow::Result<Vec<OffbeatInfo>> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
+        let bpm_list = edit.get_grid_bpm_list()?;
         let mut all_timings = Vec::new();
         for layer in edit.layers() {
             let layer_name = layer.get_name()?.unwrap_or_else(|| {
                 format!(
                     "{}{}",
-                    aviutl2::config::get_language_text("Name", "Layer").unwrap(),
+                    aviutl2::config::get_language_text("Name", "Layer"),
                     layer.index + 1
                 )
             });
             for (position, object) in layer.objects() {
-                let alias = edit.object(&object).get_alias_parsed()?;
+                let alias = edit.object(object).get_alias_parsed()?;
 
                 let frames: Vec<usize> = alias
                     .get_table("Object")
@@ -154,17 +155,16 @@ pub fn find_offsync_objects(
                 0
             };
             let adjusted_frame = timing.frame as i64 + offset;
-            let current_beat = crate::grid::frame_to_beat(&edit.info, adjusted_frame as f64);
-            let nearest_beat = current_beat.round();
             let nearest_beat_frame =
-                crate::grid::beat_to_frame_int(&edit.info, nearest_beat) as usize;
+                crate::grid::nearest_grid_frame(&edit.info, &bpm_list, adjusted_frame as f64)?
+                    as usize;
             let offset_frames = adjusted_frame - nearest_beat_frame as i64;
             let adjusted_nearest_beat_frame = nearest_beat_frame as i64 - offset;
             if offset_frames.unsigned_abs() as usize > distance || offset_frames == 0 {
                 continue;
             }
 
-            if edit.count_object_effect(&timing.object, crate::marker::IGNORE_MARKER_NAME)? > 0 {
+            if edit.count_object_effect(timing.object, crate::marker::IGNORE_MARKER_NAME)? > 0 {
                 continue;
             }
 
@@ -220,13 +220,12 @@ fn get_object_name(alias: &aviutl2::alias::Table) -> anyhow::Result<String> {
         effect_name
     };
 
-    let section_translated_name =
-        aviutl2::config::get_language_text(effect_name, effect_name).unwrap();
+    let section_translated_name = aviutl2::config::get_language_text(effect_name, effect_name);
     if &section_translated_name != effect_name {
         return Ok(section_translated_name);
     }
 
-    let effect_translated_name = aviutl2::config::get_language_text("Effect", effect_name).unwrap();
+    let effect_translated_name = aviutl2::config::get_language_text("Effect", effect_name);
     Ok(effect_translated_name)
 }
 
@@ -235,7 +234,7 @@ pub fn fix_offbeat(
     object_handle_map: &mut std::collections::HashMap<ObjectHandle, Option<ObjectHandle>>,
 ) -> anyhow::Result<()> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
-        let object = edit.object(&offbeat_info.object);
+        let object = edit.object(offbeat_info.object);
         let alias = object.get_alias_parsed()?;
         match &offbeat_info.timing_type {
             TimingType::Start { .. } => {
@@ -286,7 +285,7 @@ pub fn fix_offbeat(
                 let new_right_alias = fix_starting_gap(&right_alias, offbeat_info.offset_frames)?;
                 let right_position = right_object.get_layer_frame()?;
 
-                let left_object = edit.object(object_handle_left);
+                let left_object = edit.object(*object_handle_left);
                 let left_alias = left_object.get_alias_parsed()?;
                 let new_left_alias = fix_ending_gap(&left_alias, offbeat_info.offset_frames)?;
                 let left_position = left_object.get_layer_frame()?;
@@ -398,7 +397,7 @@ pub fn mark_ignored(
 ) -> anyhow::Result<()> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
         for object in objects {
-            let object = edit.object(object);
+            let object = edit.object(*object);
             if edit.count_object_effect(object.handle, crate::marker::IGNORE_MARKER_NAME)? > 0 {
                 continue;
             }
@@ -415,7 +414,7 @@ pub fn mark_ignored(
             let position = object.get_layer_frame()?;
             object.delete_object()?;
             edit.create_object_from_alias(&alias.to_string(), position.layer, position.start, 0)?;
-            object_handle_map.insert(*object.handle, None);
+            object_handle_map.insert(object.handle, None);
         }
         anyhow::Ok(())
     })??;

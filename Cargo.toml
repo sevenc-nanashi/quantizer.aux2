@@ -1,11 +1,11 @@
 [package]
 name = "quantizer-aux2"
-version = "0.1.10"
+version = "0.1.8"
 edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-aviutl2 = "0.22.0"
-aviutl2-eframe = "0.22.0"
+aviutl2 = "0.38.0"
+aviutl2-eframe = "0.38.0"
