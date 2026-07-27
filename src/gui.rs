@@ -81,7 +81,7 @@ impl QuantizerGuiApp {
     }
 
     fn render_header(&mut self, ui: &mut egui::Ui) {
-        egui::Panel::top("toolbar").show_inside(ui, |ui| {
+        egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui.heading("quantizer.aux2").interact(egui::Sense::click());
                 if clicked.secondary_clicked() {
@@ -124,7 +124,7 @@ impl QuantizerGuiApp {
     fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
         let toolbar = egui::Panel::top("header")
             .exact_size(8.0)
-            .show_inside(ui, |_ui| {});
+            .show(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -150,7 +150,7 @@ impl QuantizerGuiApp {
     }
 
     fn render_find_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             let response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
@@ -208,7 +208,7 @@ impl QuantizerGuiApp {
     }
 
     fn render_gaps_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             let return_response = ui
                 .add_sized(
                     egui::vec2(ui.available_width(), 40.0),
@@ -541,7 +541,7 @@ impl eframe::App for QuantizerGuiApp {
             self.gaps = None;
         }
         if !crate::EDIT_HANDLE.is_ready() {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     ui.label(tr("読み込み中..."));
                 });
