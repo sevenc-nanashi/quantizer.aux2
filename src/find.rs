@@ -12,9 +12,10 @@ pub struct FindTarget {
 }
 
 pub fn max_frames_per_beat() -> anyhow::Result<f64> {
-    crate::EDIT_HANDLE.call_edit_section(|edit| {
+    crate::EDIT_HANDLE.call_read_section(|edit| {
+        let info = crate::EDIT_HANDLE.get_edit_info();
         let bpm_list = edit.get_grid_bpm_list()?;
-        crate::grid::max_frames_per_beat(&edit.info, &bpm_list)
+        crate::grid::max_frames_per_beat(&info, &bpm_list)
     })?
 }
 
