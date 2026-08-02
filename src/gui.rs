@@ -489,6 +489,10 @@ impl QuantizerGuiApp {
             )
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         if is_selected {
+            // NOTE: ボタンのshortcut_textはボタンの中央揃えを解除してしまうので、
+            // 直接painterで描画することで中央揃えを維持する
+            //
+            // フォントサイズとかが割とワークアラウンド気味なので改善の余地はある
             let mut rect = response.rect.shrink(ui.spacing().item_spacing.y);
             rect.max.y -= ui.spacing().item_spacing.y / 2.0;
             ui.painter().text(
