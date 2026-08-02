@@ -35,4 +35,4 @@
 自動で次にジャンプ=Jump to Next Automatically
 
 [quantizer.aux2対象外]
-quantizer.aux2対象外=Exclude from quantizer.aux2
+quantizer.aux2対象外=quantizer.aux2: Excluded

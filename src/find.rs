@@ -392,30 +392,14 @@ fn fix_keyframe_gap(
     Ok(new_alias)
 }
 
-pub fn mark_ignored(
-    objects: &[ObjectHandle],
-    object_handle_map: &mut std::collections::HashMap<ObjectHandle, Option<ObjectHandle>>,
-) -> anyhow::Result<()> {
+pub fn mark_ignored(objects: &[ObjectHandle]) -> anyhow::Result<()> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
         for object in objects {
             let object = edit.object(*object);
-            if edit.count_object_effect(object.handle, crate::marker::IGNORE_MARKER_NAME)? > 0 {
+            if object.count_effect(crate::marker::IGNORE_MARKER_NAME)? > 0 {
                 continue;
             }
-            let mut alias = object.get_alias_parsed()?;
-            let object_table = alias
-                .get_table_mut("Object")
-                .context("Object table not found")?;
-            let num_tables = object_table.iter_subtables_as_array().count();
-            object_table.insert_table(&num_tables.to_string(), {
-                let mut t = aviutl2::alias::Table::new();
-                t.insert_value("effect.name", crate::marker::IGNORE_MARKER_NAME.to_string());
-                t
-            });
-            let position = object.get_layer_frame()?;
-            object.delete_object()?;
-            edit.create_object_from_alias(&alias.to_string(), position.layer, position.start, 0)?;
-            object_handle_map.insert(object.handle, None);
+            object.create_effect(crate::marker::IGNORE_MARKER_NAME)?;
         }
         anyhow::Ok(())
     })??;

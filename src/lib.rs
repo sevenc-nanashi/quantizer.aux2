@@ -65,10 +65,10 @@ impl aviutl2::generic::GenericPlugin for QuantizerAux2 {
 
 #[aviutl2::generic::menus]
 impl QuantizerAux2 {
-    #[object(name = "[quantizer.aux2] 対象外にする")]
+    #[object(name = "quantizer.aux2\\対象外にする")]
     fn ignore_object(&mut self) -> aviutl2::AnyResult<()> {
         let objects = EDIT_HANDLE.call_edit_section(|edit| edit.get_selected_objects())??;
-        crate::find::mark_ignored(&objects, &mut std::collections::HashMap::new())?;
+        crate::find::mark_ignored(&objects)?;
         Ok(())
     }
 }

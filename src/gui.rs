@@ -435,7 +435,7 @@ impl QuantizerGuiApp {
                             .on_hover_cursor(egui::CursorIcon::PointingHand)
                             .clicked()
                         {
-                            let res = crate::find::mark_ignored(&[gap.object], object_handle_map);
+                            let res = crate::find::mark_ignored(&[gap.object]);
                             match res {
                                 Ok(_) => {
                                     tracing::info!("Gap ignored successfully");
@@ -526,7 +526,7 @@ impl QuantizerGuiApp {
     fn jump_to_gap(&self, gap: &crate::find::OffbeatInfo) -> aviutl2::AnyResult<()> {
         crate::EDIT_HANDLE.call_edit_section(|edit| {
             edit.set_cursor_layer_frame(gap.position.layer, gap.frame)?;
-            edit.focus_object(gap.object)?;
+            edit.set_focus_object(Some(gap.object))?;
 
             anyhow::Ok(())
         })??;

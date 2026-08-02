@@ -3,6 +3,8 @@ pub struct IgnoreMarker;
 
 pub const IGNORE_MARKER_NAME: &str = "quantizer.aux2対象外";
 impl aviutl2::filter::FilterPlugin for IgnoreMarker {
+    type Userdata = ();
+
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         Ok(Self)
     }
@@ -26,7 +28,7 @@ impl aviutl2::filter::FilterPlugin for IgnoreMarker {
     fn proc_video(
         &self,
         _config: &[aviutl2::filter::FilterConfigItem],
-        _video: &mut aviutl2::filter::FilterProcVideo,
+        _video: &mut aviutl2::filter::FilterProcVideo<Self::Userdata>,
     ) -> aviutl2::AnyResult<()> {
         Ok(())
     }
@@ -34,7 +36,7 @@ impl aviutl2::filter::FilterPlugin for IgnoreMarker {
     fn proc_audio(
         &self,
         _config: &[aviutl2::filter::FilterConfigItem],
-        _audio: &mut aviutl2::filter::FilterProcAudio,
+        _audio: &mut aviutl2::filter::FilterProcAudio<Self::Userdata>,
     ) -> aviutl2::AnyResult<()> {
         Ok(())
     }
