@@ -22,6 +22,8 @@ pub(crate) struct QuantizerGuiApp {
     sort_by: SortBy,
     auto_jump: bool,
 
+    selected_gap_index: usize,
+
     gaps: Option<Vec<crate::find::OffbeatInfo>>,
 }
 
@@ -76,6 +78,7 @@ impl QuantizerGuiApp {
             target_project_end: false,
             sort_by: SortBy::Frame,
             auto_jump: true,
+            selected_gap_index: 0,
             gaps: None,
         }
     }
@@ -172,6 +175,7 @@ impl QuantizerGuiApp {
                         } else {
                             |gap: &crate::find::OffbeatInfo| (gap.frame, gap.position.layer)
                         });
+                        self.selected_gap_index = 0;
                         self.gaps = Some(gaps);
                     }
                     Err(e) => {
@@ -269,8 +273,23 @@ impl QuantizerGuiApp {
                 let mut interacted_indices = Vec::new();
                 let gaps = self.gaps.as_ref().unwrap();
 
+                if self.selected_gap_index >= gaps.len() {
+                    self.selected_gap_index = gaps.len() - 1;
+                }
+
+                if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp)) {
+                    if self.selected_gap_index > 0 {
+                        self.selected_gap_index -= 1;
+                    }
+                }
+                if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown)) {
+                    if self.selected_gap_index + 1 < gaps.len() {
+                        self.selected_gap_index += 1;
+                    }
+                }
+
                 for (i, gap) in gaps.iter().enumerate() {
-                    if self.draw_gap_card(ui, gap, &mut remap) {
+                    if self.draw_gap_card(ui, gap, &mut remap, self.selected_gap_index == i) {
                         remove_indices.insert(i);
                         interacted_indices.push(i);
                     }
@@ -302,6 +321,9 @@ impl QuantizerGuiApp {
 
                 for i in remove_indices.into_iter().rev() {
                     gaps.remove(i);
+                    if self.selected_gap_index > i {
+                        self.selected_gap_index -= 1;
+                    }
                 }
 
                 if self.auto_jump && !interacted_indices.is_empty() {
@@ -325,10 +347,15 @@ impl QuantizerGuiApp {
             aviutl2::generic::ObjectHandle,
             Option<aviutl2::generic::ObjectHandle>,
         >,
+        is_selected: bool,
     ) -> bool {
         let frame = egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
-            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+            .stroke(if is_selected {
+                ui.visuals().widgets.active.bg_stroke
+            } else {
+                ui.visuals().widgets.noninteractive.bg_stroke
+            })
             .inner_margin(egui::Margin::symmetric(8, 4));
         let available_width = ui.available_width();
         let mut remove = false;
@@ -395,27 +422,18 @@ impl QuantizerGuiApp {
                         };
                         ui.label(tr_format("ずれ：{offset}", &[("offset", &offset)]));
                         ui.add_space(4.0);
-                        if ui
-                            .add_sized(
-                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new(tr("ジャンプ")),
-                            )
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
+                        if self.gap_action_button(
+                            ui,
+                            &tr("ジャンプ"),
+                            egui::Key::Space,
+                            is_selected,
+                        ) {
                             let res = self.jump_to_gap(gap);
                             if let Err(e) = res {
                                 tracing::error!("Failed to jump to gap: {e}");
                             }
                         }
-                        if ui
-                            .add_sized(
-                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new(tr("補正")),
-                            )
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
+                        if self.gap_action_button(ui, &tr("補正"), egui::Key::A, is_selected) {
                             let res = crate::find::fix_offbeat(gap, object_handle_map);
                             match res {
                                 Ok(_) => {
@@ -427,14 +445,7 @@ impl QuantizerGuiApp {
                                 }
                             }
                         }
-                        if ui
-                            .add_sized(
-                                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                egui::Button::new(tr("除外")),
-                            )
-                            .on_hover_cursor(egui::CursorIcon::PointingHand)
-                            .clicked()
-                        {
+                        if self.gap_action_button(ui, &tr("除外"), egui::Key::E, is_selected) {
                             let res = crate::find::mark_ignored(&[gap.object]);
                             match res {
                                 Ok(_) => {
@@ -447,13 +458,12 @@ impl QuantizerGuiApp {
                             }
                         }
                         if self.auto_jump
-                            && ui
-                                .add_sized(
-                                    egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
-                                    egui::Button::new(tr("スキップ")),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
+                            && self.gap_action_button(
+                                ui,
+                                &tr("スキップ"),
+                                egui::Key::S,
+                                is_selected,
+                            )
                         {
                             tracing::info!("Skipping gap and jumping to next");
                             remove = true;
@@ -463,6 +473,40 @@ impl QuantizerGuiApp {
             },
         );
         remove
+    }
+
+    fn gap_action_button(
+        &self,
+        ui: &mut egui::Ui,
+        label: &str,
+        shortcut_key: egui::Key,
+        is_selected: bool,
+    ) -> bool {
+        let response = ui
+            .add_sized(
+                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+                egui::Button::new(label),
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if is_selected {
+            let mut rect = response.rect.shrink(ui.spacing().item_spacing.y);
+            rect.max.y -= ui.spacing().item_spacing.y / 2.0;
+            ui.painter().text(
+                rect.right_center(),
+                egui::Align2::RIGHT_CENTER,
+                ui.format_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    shortcut_key,
+                )),
+                egui::FontId::proportional(
+                    ui.text_style_height(&egui::TextStyle::Button)
+                        - ui.spacing().item_spacing.y * 2.0,
+                ),
+                ui.visuals().weak_text_color(),
+            );
+        }
+        response.clicked()
+            || (is_selected && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, shortcut_key)))
     }
 
     fn render_info_window(&mut self, ctx: &egui::Context) {
