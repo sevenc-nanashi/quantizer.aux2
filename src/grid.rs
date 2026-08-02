@@ -1,6 +1,6 @@
 use aviutl2::anyhow::{self, Context};
 
-// Taken from https://github.com/sigma-axis/aviutl2_tl_walkaround2/blob/8452576855f3bbc81589fc5affbaf92555ca24ff/tl_walkaround2.cpp#L1013
+// Taken from https://github.com/sigma-axis/aviutl2_tl_walkaround2/blob/22a78b355145ed07efd5a37373a5bcd1b8075b66/tl_walkaround2.cpp#L1367
 //
 // ```
 // MIT License
@@ -26,12 +26,31 @@ use aviutl2::anyhow::{self, Context};
 // SOFTWARE.
 // ```
 
-pub fn frame_to_second(info: &aviutl2::generic::EditInfo, frame_num: f64) -> f64 {
-    frame_num * *info.fps.denom() as f64 / *info.fps.numer() as f64
+struct BpmGridCalc {
+    tempo: f64,
+    offset: f64,
+    rate: f64,
+    scale: f64,
 }
 
-pub fn second_to_frame(info: &aviutl2::generic::EditInfo, second_num: f64) -> f64 {
-    second_num * *info.fps.numer() as f64 / *info.fps.denom() as f64
+impl BpmGridCalc {
+    fn new(bpm: aviutl2::generic::BpmInfo, rate: f64, scale: f64) -> Self {
+        Self {
+            tempo: bpm.tempo as f64,
+            offset: bpm.start + bpm.offset as f64,
+            rate,
+            scale,
+        }
+    }
+
+    fn beat_to_frame(&self, beat_num: f64) -> f64 {
+        (60.0 * beat_num + self.tempo * self.offset) * self.rate / (self.tempo * self.scale)
+    }
+
+    fn frame_to_beat(&self, frame_num: f64) -> f64 {
+        (self.tempo * self.scale * frame_num - self.tempo * self.rate * self.offset)
+            / (60.0 * self.rate)
+    }
 }
 
 pub fn max_frames_per_beat(
@@ -59,11 +78,20 @@ pub fn nearest_grid_frame(
     bpm_list: &[aviutl2::generic::BpmInfo],
     frame_num: f64,
 ) -> anyhow::Result<i32> {
-    let nearest_second = nearest_grid_second(bpm_list, frame_to_second(info, frame_num))?;
-    Ok(second_to_frame(info, nearest_second).ceil() as i32)
+    nearest_grid_frame_at_rate(
+        bpm_list,
+        frame_num,
+        *info.fps.numer() as f64,
+        *info.fps.denom() as f64,
+    )
 }
 
-fn nearest_grid_second(bpm_list: &[aviutl2::generic::BpmInfo], second: f64) -> anyhow::Result<f64> {
+fn nearest_grid_frame_at_rate(
+    bpm_list: &[aviutl2::generic::BpmInfo],
+    frame_num: f64,
+    rate: f64,
+    scale: f64,
+) -> anyhow::Result<i32> {
     if bpm_list.is_empty() {
         anyhow::bail!("BPM grid is empty");
     }
@@ -74,22 +102,26 @@ fn nearest_grid_second(bpm_list: &[aviutl2::generic::BpmInfo], second: f64) -> a
     let mut bpm_list = bpm_list.to_vec();
     bpm_list.sort_by(|left, right| left.start.total_cmp(&right.start));
 
-    let mut nearest_second = None;
+    let mut nearest_frame = None;
     for (index, bpm) in bpm_list.iter().enumerate() {
-        let end = bpm_list.get(index + 1).map(|next| next.start);
-        let current_beat = second_to_beat(*bpm, second);
+        let start_frame = (bpm.start * rate / scale).ceil();
+        let end_frame = bpm_list
+            .get(index + 1)
+            .map(|next| (next.start * rate / scale).ceil());
+        let bpm_calc = BpmGridCalc::new(*bpm, rate, scale);
+        let current_beat = bpm_calc.frame_to_beat(frame_num);
         for beat in [current_beat.floor(), current_beat.ceil()] {
-            let candidate = beat_to_second(*bpm, beat);
-            if candidate < bpm.start {
+            let candidate = bpm_calc.beat_to_frame(beat).ceil();
+            if candidate < start_frame {
                 continue;
             }
-            if let Some(end) = end
-                && candidate >= end
+            if let Some(end_frame) = end_frame
+                && candidate >= end_frame
             {
                 continue;
             }
-            let distance = (candidate - second).abs();
-            nearest_second = Some(match nearest_second {
+            let distance = (candidate - frame_num).abs();
+            nearest_frame = Some(match nearest_frame {
                 Some((nearest, nearest_distance)) if nearest_distance <= distance => {
                     (nearest, nearest_distance)
                 }
@@ -98,18 +130,10 @@ fn nearest_grid_second(bpm_list: &[aviutl2::generic::BpmInfo], second: f64) -> a
         }
     }
 
-    let nearest_second = nearest_second
-        .map(|(second, _)| second)
+    let nearest_frame = nearest_frame
+        .map(|(frame, _)| frame as i32)
         .context("No BPM grid candidate found")?;
-    Ok(nearest_second)
-}
-
-fn beat_to_second(bpm: aviutl2::generic::BpmInfo, beat_num: f64) -> f64 {
-    bpm.start + (bpm.offset as f64) + 60.0 * beat_num / (bpm.tempo as f64)
-}
-
-fn second_to_beat(bpm: aviutl2::generic::BpmInfo, second_num: f64) -> f64 {
-    (second_num - bpm.start - (bpm.offset as f64)) * (bpm.tempo as f64) / 60.0
+    Ok(nearest_frame)
 }
 
 #[cfg(test)]
@@ -126,20 +150,29 @@ mod tests {
     }
 
     #[test]
-    fn nearest_grid_second_uses_offset_relative_to_each_bpm_start() {
+    fn nearest_grid_frame_uses_offset_relative_to_each_bpm_start() {
         let bpm_list = [bpm(120.0, 0.0, 0.0), bpm(60.0, 10.0, 0.25)];
 
-        let nearest = nearest_grid_second(&bpm_list, 11.2).unwrap();
+        let nearest = nearest_grid_frame_at_rate(&bpm_list, 11.2 * 30.0, 30.0, 1.0).unwrap();
 
-        assert_eq!(nearest, 11.25);
+        assert_eq!(nearest, 338);
     }
 
     #[test]
-    fn nearest_grid_second_does_not_use_previous_segment_after_next_start() {
+    fn nearest_grid_frame_does_not_use_previous_segment_after_next_start() {
         let bpm_list = [bpm(120.0, 0.0, 0.0), bpm(60.0, 10.0, 0.25)];
 
-        let nearest = nearest_grid_second(&bpm_list, 10.1).unwrap();
+        let nearest = nearest_grid_frame_at_rate(&bpm_list, 10.1 * 30.0, 30.0, 1.0).unwrap();
 
-        assert_eq!(nearest, 10.25);
+        assert_eq!(nearest, 308);
+    }
+
+    #[test]
+    fn nearest_grid_frame_uses_rounded_bpm_segment_boundary() {
+        let bpm_list = [bpm(120.0, 0.0, 0.005), bpm(60.0, 10.01, 0.25)];
+
+        let nearest = nearest_grid_frame_at_rate(&bpm_list, 301.0, 30.0, 1.0).unwrap();
+
+        assert_eq!(nearest, 308);
     }
 }
