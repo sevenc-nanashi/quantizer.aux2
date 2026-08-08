@@ -47,23 +47,10 @@ impl QuantizerGuiApp {
             .egui_ctx
             .data_mut(|data| data.get_persisted::<bool>(egui::Id::new("header_collapsed")))
             .unwrap_or(false);
-        let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert(
-            "M+ 1p".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                "./fonts/mplus-1p-regular.ttf"
-            ))),
-        );
-        fonts
-            .families
-            .get_mut(&egui::FontFamily::Proportional)
-            .expect("Failed to get Proportional font family")
-            .insert(0, "M+ 1p".to_owned());
-
         cc.egui_ctx.all_styles_mut(|style| {
             style.visuals = aviutl2_eframe::aviutl2_visuals();
         });
-        cc.egui_ctx.set_fonts(fonts);
+        cc.egui_ctx.set_fonts(aviutl2_eframe::aviutl2_fonts());
 
         Self {
             handle,
@@ -493,8 +480,7 @@ impl QuantizerGuiApp {
             // 直接painterで描画することで中央揃えを維持する
             //
             // フォントサイズとかが割とワークアラウンド気味なので改善の余地はある
-            let mut rect = response.rect.shrink(ui.spacing().item_spacing.y);
-            rect.max.y -= ui.spacing().item_spacing.y / 2.0;
+            let rect = response.rect.shrink(ui.spacing().item_spacing.y);
             ui.painter().text(
                 rect.right_center(),
                 egui::Align2::RIGHT_CENTER,
@@ -502,10 +488,7 @@ impl QuantizerGuiApp {
                     egui::Modifiers::NONE,
                     shortcut_key,
                 )),
-                egui::FontId::proportional(
-                    ui.text_style_height(&egui::TextStyle::Button)
-                        - ui.spacing().item_spacing.y * 2.0,
-                ),
+                egui::FontId::proportional(rect.height() - ui.spacing().item_spacing.y),
                 ui.visuals().weak_text_color(),
             );
         }
