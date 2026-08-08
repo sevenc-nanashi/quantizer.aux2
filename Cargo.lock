@@ -143,9 +143,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "aviutl2"
-version = "0.42.0"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c55235b8abd454b2d4f49406a0cb16ef9d0557993e47fad78628227bb61ec449"
+checksum = "0471704e1375288f1b83ce2b5028868f19f70ff59e4e77d789e87885b4271162"
 dependencies = [
  "anyhow",
  "aviutl2-alias",
@@ -171,9 +171,9 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-alias"
-version = "0.42.0"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e47f576ed6c22539345cd229697938bd62c806ac30934ed1340fecfbed8c81d4"
+checksum = "b86de54acff6ea526203686801aceaea28a504ac88a0e8416603694d319bc3cf"
 dependencies = [
  "duplicate",
  "indexmap",
@@ -182,23 +182,24 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-eframe"
-version = "0.42.0"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e85ddce4893dd7893910889d84d0b967d5cc67172bc0708c96889fb378e3801"
+checksum = "8f44842c695e321f310d6595d7c297b3e495356662282d3a98221138af50ece6"
 dependencies = [
  "anyhow",
  "aviutl2",
  "eframe",
  "fontdb",
+ "process_path",
  "windows",
  "winit",
 ]
 
 [[package]]
 name = "aviutl2-macros"
-version = "0.42.0"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03958abc3ad9388466cbb9e10ebb2200f360e17e99c7f15b757f4ddbf1d85739"
+checksum = "a0eb8fb0f7a8690773fa8d25d9040005c15872f7db59fa0bff6460f1d19f6166"
 dependencies = [
  "decimal-rs",
  "either",
@@ -211,9 +212,9 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.42.0"
+version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7918b748647918fa7ad75e6ee2c05076a4ff4fcf57a3d24eab19a1185bb96d21"
+checksum = "f6174386e8c7ab170a10b0c6cd28b2c5468202ecf79a9d441f93fb512cebaff9"
 dependencies = [
  "windows-sys 0.61.2",
 ]

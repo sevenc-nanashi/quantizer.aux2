@@ -230,166 +230,84 @@ fn get_object_name(alias: &aviutl2::alias::Table) -> anyhow::Result<String> {
     Ok(effect_translated_name)
 }
 
-pub fn fix_offbeat(
-    offbeat_info: &OffbeatInfo,
-    object_handle_map: &mut std::collections::HashMap<ObjectHandle, Option<ObjectHandle>>,
-) -> anyhow::Result<()> {
+pub fn fix_offbeat(offbeat_info: &OffbeatInfo) -> anyhow::Result<()> {
     crate::EDIT_HANDLE.call_edit_section(|edit| {
         let object = edit.object(offbeat_info.object);
-        let alias = object.get_alias_parsed()?;
         match &offbeat_info.timing_type {
             TimingType::Start { .. } => {
-                let new_alias = fix_starting_gap(&alias, offbeat_info.offset_frames)?;
                 let position = object.get_layer_frame()?;
-                object.delete_object()?;
-                let new_object = edit.create_object_from_alias(
-                    &new_alias.to_string(),
-                    position.layer,
-                    ((position.start as i64) - offbeat_info.offset_frames) as usize,
+                edit.move_object_section(
+                    *object,
                     0,
+                    (position.start as i64 - offbeat_info.offset_frames)
+                        .try_into()
+                        .context("fixed frame out of range")?,
                 )?;
-
-                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::End { .. } => {
-                let new_alias = fix_ending_gap(&alias, offbeat_info.offset_frames)?;
                 let position = object.get_layer_frame()?;
-                object.delete_object()?;
-                let new_object = edit.create_object_from_alias(
-                    &new_alias.to_string(),
-                    position.layer,
-                    position.start,
-                    0,
+                edit.move_object_section(
+                    *object,
+                    object.get_section_num()?,
+                    (position.end as i64 - offbeat_info.offset_frames)
+                        .try_into()
+                        .context("fixed frame out of range")?,
                 )?;
-
-                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::Keyframe { keyframe_index, .. } => {
-                let new_alias =
-                    fix_keyframe_gap(&alias, *keyframe_index, offbeat_info.offset_frames)?;
-                let position = object.get_layer_frame()?;
-                object.delete_object()?;
-                let new_object = edit.create_object_from_alias(
-                    &new_alias.to_string(),
-                    position.layer,
-                    position.start,
-                    0,
+                let position = object.get_section_frame(*keyframe_index + 1)?;
+                edit.move_object_section(
+                    *object,
+                    *keyframe_index + 1,
+                    (position as i64 - offbeat_info.offset_frames)
+                        .try_into()
+                        .context("fixed frame out of range")?,
                 )?;
-
-                object_handle_map.insert(offbeat_info.object, Some(new_object));
             }
             TimingType::EndThenStart {
                 object_handle_left, ..
             } => {
-                let right_object = object;
-                let right_alias = right_object.get_alias_parsed()?;
-                let new_right_alias = fix_starting_gap(&right_alias, offbeat_info.offset_frames)?;
-                let right_position = right_object.get_layer_frame()?;
-
-                let left_object = edit.object(*object_handle_left);
-                let left_alias = left_object.get_alias_parsed()?;
-                let new_left_alias = fix_ending_gap(&left_alias, offbeat_info.offset_frames)?;
-                let left_position = left_object.get_layer_frame()?;
-
-                left_object.delete_object()?;
-                right_object.delete_object()?;
-
-                let new_right_object = edit.create_object_from_alias(
-                    &new_right_alias.to_string(),
-                    right_position.layer,
-                    ((right_position.start as i64) - offbeat_info.offset_frames) as usize,
-                    0,
-                )?;
-                let new_left_object = edit.create_object_from_alias(
-                    &new_left_alias.to_string(),
-                    left_position.layer,
-                    left_position.start,
-                    0,
-                )?;
-
-                object_handle_map.insert(*object_handle_left, Some(new_left_object));
-                object_handle_map.insert(offbeat_info.object, Some(new_right_object));
+                if offbeat_info.offset_frames > 0 {
+                    let position = object.get_layer_frame()?;
+                    let left_position = edit.get_object_layer_frame(*object_handle_left)?;
+                    edit.move_object_section(
+                        *object_handle_left,
+                        edit.get_object_section_num(*object_handle_left)?,
+                        (left_position.end as i64 - offbeat_info.offset_frames)
+                            .try_into()
+                            .context("fixed frame out of range")?,
+                    )?;
+                    edit.move_object_section(
+                        *object,
+                        0,
+                        (position.start as i64 - offbeat_info.offset_frames)
+                            .try_into()
+                            .context("fixed frame out of range")?,
+                    )?;
+                } else {
+                    let position = object.get_layer_frame()?;
+                    let left_position = edit.get_object_layer_frame(*object_handle_left)?;
+                    edit.move_object_section(
+                        *object,
+                        0,
+                        (position.start as i64 - offbeat_info.offset_frames)
+                            .try_into()
+                            .context("fixed frame out of range")?,
+                    )?;
+                    edit.move_object_section(
+                        *object_handle_left,
+                        edit.get_object_section_num(*object_handle_left)?,
+                        (left_position.end as i64 - offbeat_info.offset_frames)
+                            .try_into()
+                            .context("fixed frame out of range")?,
+                    )?;
+                }
             }
         }
 
         anyhow::Ok(())
     })??;
     Ok(())
-}
-
-fn fix_starting_gap(
-    alias: &aviutl2::alias::Table,
-    offset_frames: i64,
-) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<i64> = alias
-        .get_table("Object")
-        .context("Object table not found")?
-        .parse_value("frame")
-        .context("frame column not found")??;
-    frames[0] -= offset_frames;
-    let mut new_alias = alias.clone();
-    new_alias
-        .get_table_mut("Object")
-        .context("Object table not found")?
-        .insert_value(
-            "frame",
-            frames
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-        );
-    Ok(new_alias)
-}
-fn fix_ending_gap(
-    alias: &aviutl2::alias::Table,
-    offset_frames: i64,
-) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<i64> = alias
-        .get_table("Object")
-        .context("Object table not found")?
-        .parse_value("frame")
-        .context("frame column not found")??;
-    *frames.last_mut().unwrap() -= offset_frames;
-    let mut new_alias = alias.clone();
-    new_alias
-        .get_table_mut("Object")
-        .context("Object table not found")?
-        .insert_value(
-            "frame",
-            frames
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-        );
-    Ok(new_alias)
-}
-fn fix_keyframe_gap(
-    alias: &aviutl2::alias::Table,
-    keyframe_index: usize,
-    offset_frames: i64,
-) -> anyhow::Result<aviutl2::alias::Table> {
-    let mut frames: Vec<i64> = alias
-        .get_table("Object")
-        .context("Object table not found")?
-        .parse_value("frame")
-        .context("frame column not found")??;
-    frames[keyframe_index + 1] -= offset_frames;
-    let mut new_alias = alias.clone();
-    new_alias
-        .get_table_mut("Object")
-        .context("Object table not found")?
-        .insert_value(
-            "frame",
-            frames
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-        );
-
-    Ok(new_alias)
 }
 
 pub fn mark_ignored(objects: &[ObjectHandle]) -> anyhow::Result<()> {

@@ -256,7 +256,6 @@ impl QuantizerGuiApp {
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let mut remove_indices = std::collections::HashSet::new();
-                let mut remap = std::collections::HashMap::new();
                 let mut interacted_indices = Vec::new();
                 let gaps = self.gaps.as_ref().unwrap();
 
@@ -276,33 +275,13 @@ impl QuantizerGuiApp {
                 }
 
                 for (i, gap) in gaps.iter().enumerate() {
-                    if self.draw_gap_card(ui, gap, &mut remap, self.selected_gap_index == i) {
+                    if self.draw_gap_card(ui, gap, self.selected_gap_index == i) {
                         remove_indices.insert(i);
                         interacted_indices.push(i);
                     }
                 }
 
                 let gaps = self.gaps.as_mut().unwrap();
-                for (i, gap) in gaps.iter_mut().enumerate() {
-                    if let Some(new_handle) = remap.get(&gap.object) {
-                        if let Some(new_handle) = new_handle {
-                            gap.object = *new_handle;
-                        } else {
-                            remove_indices.insert(i);
-                        }
-                    }
-                    if let crate::find::TimingType::EndThenStart {
-                        object_handle_left, ..
-                    } = &mut gap.timing_type
-                        && let Some(new_handle) = remap.get(object_handle_left)
-                    {
-                        if let Some(new_handle) = new_handle {
-                            *object_handle_left = *new_handle;
-                        } else {
-                            remove_indices.insert(i);
-                        }
-                    }
-                }
                 let mut remove_indices: Vec<usize> = remove_indices.into_iter().collect();
                 remove_indices.sort_unstable();
 
@@ -330,10 +309,6 @@ impl QuantizerGuiApp {
         &self,
         ui: &mut egui::Ui,
         gap: &crate::find::OffbeatInfo,
-        object_handle_map: &mut std::collections::HashMap<
-            aviutl2::generic::ObjectHandle,
-            Option<aviutl2::generic::ObjectHandle>,
-        >,
         is_selected: bool,
     ) -> bool {
         let frame = egui::Frame::group(ui.style())
@@ -421,11 +396,11 @@ impl QuantizerGuiApp {
                             }
                         }
                         if self.gap_action_button(ui, &tr("補正"), egui::Key::A, is_selected) {
-                            let res = crate::find::fix_offbeat(gap, object_handle_map);
+                            let res = crate::find::fix_offbeat(gap);
+                            remove = true;
                             match res {
                                 Ok(_) => {
                                     tracing::info!("Gap fixed successfully");
-                                    remove = true;
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to fix gap: {e}");
@@ -434,10 +409,10 @@ impl QuantizerGuiApp {
                         }
                         if self.gap_action_button(ui, &tr("除外"), egui::Key::E, is_selected) {
                             let res = crate::find::mark_ignored(&[gap.object]);
+                            remove = true;
                             match res {
                                 Ok(_) => {
                                     tracing::info!("Gap ignored successfully");
-                                    remove = true;
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to add marker: {e}");
