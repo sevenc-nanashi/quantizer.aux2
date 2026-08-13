@@ -2,7 +2,7 @@
 
 [English](README.en.md) | [日本語](README.md)
 
-[![AviUtl2 Catalog](https://aviutl2-catalog-badge.sevenc7c.workers.dev/badge/v/sevenc-nanashi.quantizer-aux2)](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.quantizer-aux2)
+[![AviUtl2 Catalog](https://aviutl2-catalog-badge.sevenc7c.workers.dev/badge/v/sevenc-nanashi.quantizer-aux2)](https://a2cw.sevenc7c.com/package/sevenc-nanashi.quantizer-aux2)
 
 A generic plugin for AviUtl2 that corrects objects that are slightly off from the BPM grid.
 
