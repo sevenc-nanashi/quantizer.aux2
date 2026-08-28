@@ -1,4 +1,4 @@
-use aviutl2::anyhow::{self, Context};
+use aviutl2::anyhow;
 
 // Taken from https://github.com/sigma-axis/aviutl2_tl_walkaround2/blob/22a78b355145ed07efd5a37373a5bcd1b8075b66/tl_walkaround2.cpp#L1367
 //
@@ -102,6 +102,10 @@ fn nearest_grid_frame_at_rate(
     let mut bpm_list = bpm_list.to_vec();
     bpm_list.sort_by(|left, right| left.start.total_cmp(&right.start));
 
+    if bpm_list.is_empty() {
+        anyhow::bail!("BPM grid is empty");
+    }
+
     let mut nearest_frame = None;
     for (index, bpm) in bpm_list.iter().enumerate() {
         let start_frame = (bpm.start * rate / scale).ceil();
@@ -130,9 +134,16 @@ fn nearest_grid_frame_at_rate(
         }
     }
 
-    let nearest_frame = nearest_frame
-        .map(|(frame, _)| frame as i32)
-        .context("No BPM grid candidate found")?;
+    let nearest_frame = match nearest_frame {
+        Some((frame, _)) => frame as i32,
+        None => {
+            // 最初のBPMグリッドを使用して、最も近いフレームを計算する
+            let bpm_calc = BpmGridCalc::new(bpm_list[0], rate, scale);
+            let current_beat = bpm_calc.frame_to_beat(frame_num);
+            let nearest_beat = current_beat.round();
+            bpm_calc.beat_to_frame(nearest_beat).ceil() as i32
+        }
+    };
     Ok(nearest_frame)
 }
 
