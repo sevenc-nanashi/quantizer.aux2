@@ -36,3 +36,6 @@
 
 [quantizer.aux2対象外]
 quantizer.aux2対象外=quantizer.aux2: Excluded
+
+[Menu]
+対象外にする=Exclude

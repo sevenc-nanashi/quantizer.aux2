@@ -61,6 +61,13 @@ impl aviutl2::generic::GenericPlugin for QuantizerAux2 {
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
         RESET_GAPS_ON_PROJECT_LOAD.store(true, Ordering::Relaxed);
     }
+
+    fn event_reload_language(&mut self) {
+        match self.gui.egui_ctx() {
+            Ok(ctx) => ctx.request_repaint(),
+            Err(e) => tracing::error!("Failed to get GUI context: {e}"),
+        }
+    }
 }
 
 #[aviutl2::generic::menus]

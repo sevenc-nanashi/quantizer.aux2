@@ -15,8 +15,8 @@ impl aviutl2::filter::FilterPlugin for IgnoreMarker {
             label: Some("quantizer.aux2".to_string()),
             information: "quantizer.aux2 : Mark this object to be ignored by quantizer.aux2."
                 .to_string(),
-            flags: aviutl2::bitflag! {
-                aviutl2::filter::FilterPluginFlags {
+            flag: aviutl2::bitflag! {
+                aviutl2::filter::FilterPluginFlag {
                     video: true,
                     audio: true,
                 }
